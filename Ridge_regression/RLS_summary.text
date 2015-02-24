@@ -1,0 +1,160 @@
+Regularised Least Squares
+=========================
+
+Introduction
+------------
+
+In this little report the essentials definitions and derivations of the
+regularised least squares (RLS) is given. We will work out the multivariate case
+in which the labels for each instance consist of a multidimensional vector, the
+case containing an univariate output is a special case of this. I will blur the
+distinction between using features and using a kernel representation by using an
+eigenvalue decomposition as the basis of the formulas.
+
+Problem definition
+------------------
+
+Consider:
+
+-   $\mathbf{X} (N\times P)$: the matrix containing the instances on the rows
+    and the features on the columns
+
+-   $\mathbf{Y} (N\times K)$: the matrix containing the labels for the different
+    instances and the different tasks
+
+-   $\mathbf{K} (N\times K)$: kernel matrix as an alternative to a feature
+    representation
+
+-   $\mathbf{Q} = \mathbf{R}^T\mathbf{R} (N \times N)$: a symmetric and
+    semi-positive definite matrix for reweigthing the instances (e.g. in case of
+    heteroscedaticity, for reweighing observations, hold-out…)
+
+-   $\mathbf{L} (P\times P)$ a symmetric and positive definite matrix used to
+    for regularisation and to incorporate prior knowledge about the features
+
+We can learn the parameter matrix $\mathbf{W}$ for a linear model of the form:
+
+$$
+\hat{\mathbf{y}} = \mathbf{x}^T\mathbf{W},
+$$
+
+by minimising:
+
+$$
+J(\mathbf{W}) = \text{Tr}[(\mathbf{Y}- \mathbf{X}\mathbf{W})^T\mathbf{Q}(\mathbf{Y}- \mathbf{X}\mathbf{W})] + \text{Tr}[\mathbf{W}^T\mathbf{L}\mathbf{W}].
+$$
+
+This is a convex optimisation problem and can be represented graphically:
+
+If we take a partial derivative with respect to $\mathcal{W}:$
+
+$$
+\frac{\partial J(\mathbf{W})}{\partial \mathbf{W}} = -2\mathbf{X}^T\mathbf{Q}(\mathbf{Y}-\mathbf{X}\mathbf{W}) + 2\mathbf{L}\mathbf{W}.
+$$
+
+So, finding optimal $\mathbf{W}$ boils down to solving the following linear
+system:
+
+$$
+(\mathbf{X}^T\mathbf{Q}\mathbf{X}+\mathbf{L})\mathbf{W} = \mathbf{X}^T\mathbf{Q}\mathbf{Y}.
+$$
+
+$$
+
+$$
+
+About Q and L
+-------------
+
+The above system can be rewritten as:
+
+$$
+((\mathbf{X}\mathbf{R})^T\mathbf{R}\mathbf{X}+\mathbf{L})\mathbf{W} = (\mathbf{X}\mathbf{R})^T(\mathbf{R}\mathbf{Y}).
+$$
+
+We can remove this matrix $\mathbf{Q}$ from our equations by performing a
+substitution:
+
+$$
+\mathbf{X}' = \mathbf{R}\mathbf{X}
+$$
+
+and
+
+$$
+\mathbf{Y}' = \mathbf{R}\mathbf{Y}.
+$$
+
+So we can remove this matrix without loss of generality by simply performing a
+change of coordinates.
+
+Applying eigenvalue decompositions
+----------------------------------
+
+Suppose that
+
+$$
+\mathbf{X} = \mathbf{U}\Sigma \mathbf{V}^T
+$$
+
+and
+
+$$
+\mathbf{K} = \mathbf{U}\Sigma^2 \mathbf{U}^T
+$$
+
+Here, $\mathbf{U}$ and $\mathbf{V}$ are two orthonormal matrices containing the
+eigenvectors and $\Sigma$ a diagonal matrix with corresponding eigenvalues. Note
+that we slightly overload the notation, by assuming that $\mathbf{X}\mathbf{X}^T
+= \mathbf{K}$. Since we will eliminate $\mathbf{V}$ form the equations, our
+derivations can extend to both. For theoretical purposes, we will assume a new
+instance for which we make predictions is described in terms of eigenvectors:
+$\mathbf{u}_{new}$.
+
+Suppose we want to make predictions:
+
+$$
+\hat{\mathbf{y}}_{new} = \mathbbf{u}_{new}\Sigma \mathbf{V} ^T(\mathbf{V}\Sigma \mathbf{U}^T\mathbf{U}\Sigma \mathbf{V}^T+\mathbf{L})^{-1}\mathbf{V}\Sigma \mathbf{U}^T\mathbf{Y}
+$$
+
+Using elementary math, this simplifies to:
+
+$$
+\hat{\mathbf{y}}_{new} = \mathbf{u}_{new}\Sigma^2(\Sigma^2+\mathbf{L})^{-1}\mathbf{U}^T\mathbf{Y}
+$$
+
+which can be calculated by inverting a diagonal matrix. For this, it might be of
+interest to define a filter function (to do...)
+
+For prediction in practice:
+
+$$
+\mathbf{x}_{new} = \mathbf{u}_{new}\Sigma\mathbf{V}^T
+$$
+
+and
+
+$$
+\mathbf{k}_{new} = \mathbf{u}_{new}\Sigma^2\mathbf{U}^T
+$$
+
+So the weights for models in primal and dual space can be found
+straightforwardly.
+
+Efficient hold out
+------------------
+
+The matrix $\mathbf{Q}$ is key to perform efficient hold-out validation. When
+the model with the complete data is learned, it is possible to ‘unlearn’ a part
+of the data computationally efficient.
+
+Let $\mathbf{R}$ here denote a $M \times N$ matrix, with $M<N$. It is
+constructed by taking an identity matrix and removing the rows corresponding to
+the indices of the validation instances. I.e. $U_{HI} = \mathbf{R} \mathbf{U}$
+
+dit moet mooi uitgeschreven worden
+
+Stability of the univariate case
+--------------------------------
+
+zie Kernel methods for pattern analysis pagina 323
