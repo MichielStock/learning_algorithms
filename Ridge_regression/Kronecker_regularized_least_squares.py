@@ -1,6 +1,6 @@
 """
-Created on Tue Jan 17 2015
-Last update: Thu Jan 19 2015
+Created on Tue Feb 17 2015
+Last update: Thu Feb 24 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -58,6 +58,10 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Make new prediction for U_new and V_new
         """
         return U_new.dot(self._W.dot(V_new.T))
+
+    def predict_LOOCV(self, regularization):
+        # hier komt LOOCV
+        return
 
 class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
 
