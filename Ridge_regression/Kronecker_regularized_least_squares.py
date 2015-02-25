@@ -75,7 +75,16 @@ class KroneckerRegularizedLeastSquaresGeneral:
         else:
             return self._Y - residual_HOO
 
-    #def
+    def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid):
+        self.best_performance_LOOCV = 1e10
+        for reg_1 in reg_1_grid:
+            for reg_2 in reg_2_grid:
+                performance = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2), mse=True)
+                if performance < self.best_performance_LOOCV:
+                    self.best_performance_LOOCV = performance
+                    self.best_regularisation = (reg_1, reg_2)
+                print reg_1, reg_2, performance
+        self.train_model(self.best_regularisation, algorithm='2SRLS')
 
 class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
 
@@ -104,14 +113,14 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 260
-    n_v = 410
+    n_u = 2600
+    n_v = 4100
 
     # dimension of objects
-    p_u = 20
-    p_v = 10
+    p_u = 200
+    p_v = 100
 
-    noise = 0.1
+    noise = 100
 
     X_u = np.random.randn(n_u, p_u)
     K_u = np.dot(X_u, X_u.T)
@@ -132,6 +141,11 @@ if __name__ == "__main__":
     print np.mean((Y-Yhat)**2)
 
     print KRLS.predict_LOOCV_rows_2SRLS((.1,.1), mse = True)
+
+    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)], [10**i for i in range(-10, 10)])
+
+    print KRLS.best_performance_LOOCV
+    print KRLS.best_regularisation
 
 
     """
