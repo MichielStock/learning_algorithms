@@ -68,14 +68,14 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 algorithm='2SRLS')
         Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
                 .dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
-        hat_u_diags = np.sum(self._U**2/(self._Sigma + reg_1)*self._Sigma)
+        hat_u_diags = np.sum(self._U**2/(self._Sigma + reg_1)*self._Sigma, 1)
         residual_HOO = ((Y-Yhat).T/(1-hat_u_diags)).T
         if mse:
-            return np.sum(residual_HOO**2)
+            return np.mean(residual_HOO**2)
         else:
             return self._Y - residual_HOO
 
-    def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid):
+    def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False):
         self.best_performance_LOOCV = 1e10
         for reg_1 in reg_1_grid:
             for reg_2 in reg_2_grid:
@@ -83,7 +83,8 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 if performance < self.best_performance_LOOCV:
                     self.best_performance_LOOCV = performance
                     self.best_regularisation = (reg_1, reg_2)
-                print reg_1, reg_2, performance
+                if verbose:
+                    print 'Regulariser u: %s, Regulariser v: %s gives MSE of %s' %(reg_1, reg_2, performance)
         self.train_model(self.best_regularisation, algorithm='2SRLS')
 
 class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
@@ -113,14 +114,14 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 2600
-    n_v = 4100
+    n_u = 480
+    n_v = 600
 
     # dimension of objects
-    p_u = 200
-    p_v = 100
+    p_u = 180
+    p_v = 150
 
-    noise = 100
+    noise = 10
 
     X_u = np.random.randn(n_u, p_u)
     K_u = np.dot(X_u, X_u.T)
@@ -142,11 +143,17 @@ if __name__ == "__main__":
 
     print KRLS.predict_LOOCV_rows_2SRLS((.1,.1), mse = True)
 
-    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)], [10**i for i in range(-10, 10)])
+    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
+        [10**i for i in range(-10, 10)], verbose = True)
 
     print KRLS.best_performance_LOOCV
     print KRLS.best_regularisation
 
+    X_u_new = np.random.randn(n_u, p_u)
+    Ynew = X_u_new.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
+
+    Yhat_new = KRLS.predict(X_u_new.dot(X_u.T), K_v)
+    print np.mean((Ynew-Yhat_new)**2)
 
     """
     from sklearn.metrics import roc_auc_score
