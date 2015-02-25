@@ -44,8 +44,11 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
         self.spectral_filter(regularisation, return_values=False,
                 algorithm=algorithm)
-        self._W =  self._U.dot(self._filtered_values * self._U.T.dot(
-                self._Y.dot(self._V))).dot(self._V.T)
+        projected_labels_filtered = self._filtered_values * self._U.T.dot(\
+                self._Y.dot(self._V))
+        self._W =  self._U.dot(projected_labels_filtered).dot(self._V.T)
+        self.model_norm = np.sum(np.dot(self._Sigma.reshape((-1, 1)),\
+                self._Delta.reshape((-1, 1)).T)*projected_labels_filtered**2)
 
     def get_parameters(self):
         """
@@ -86,6 +89,13 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 if verbose:
                     print 'Regulariser u: %s, Regulariser v: %s gives MSE of %s' %(reg_1, reg_2, performance)
         self.train_model(self.best_regularisation, algorithm='2SRLS')
+
+    def get_norm(self):
+        """
+        Returns the norm of the trained model
+        """
+        return self.model_norm
+
 
 class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
 
