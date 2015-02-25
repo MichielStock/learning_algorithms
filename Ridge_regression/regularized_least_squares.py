@@ -192,7 +192,7 @@ class RegularizedLeastSquaresGeneral:
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
-    def __repr__(self):
+    def __str__(self):
         print 'General RLS model'
         print 'Dimensionality of output is %s' %self._Y.shape[1]
         if hasattr(self, '_filtered_values'):
