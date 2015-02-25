@@ -1,6 +1,6 @@
 """
 Created on Tue Feb 17 2015
-Last update: Thu Feb 24 2015
+Last update: Wed Feb 25 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -18,8 +18,8 @@ class KroneckerRegularizedLeastSquaresGeneral:
         self._Y = Y
         self._U = U  # eigenvectors first type of objects
         self._V = V  # eigenvectors second type of objects
-        self._Sigma = Sigma.reshape((-1, 1))  # eigenvalues of first type of objects
-        self._Delta = Delta.reshape((-1, 1))  # eigenvalues of second type of objects
+        self._Sigma = Sigma  # eigenvalues of first type of objects
+        self._Delta = Delta  # eigenvalues of second type of objects
 
     def spectral_filter(self, regularisation, return_values=False,
                 algorithm='2SRLS'):
@@ -31,17 +31,17 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         if algorithm == '2SRLS':
             lambda_u, lambda_v = regularisation
-            self._filtered_values = 1/np.dot((self._Sigma + lambda_u), \
-                    (self._Delta + lambda_v).T)
+            self._filtered_values = 1/np.dot((self._Sigma.reshape((-1, 1))\
+                + lambda_u), (self._Delta.reshape((-1, 1)) + lambda_v).T)
         elif algorithm == 'KRLS':
-            self._filtered_values = 1/(np.dot(self._Sigma, self._Delta.T) + \
-                    regularisation)
+            self._filtered_values = 1/(np.dot(self._Sigma.reshape((-1, 1)),\
+                self._Delta.reshape((-1, 1)).T) + regularisation)
         else:
             raise KeyError
         if return_values:
             return self._filtered_values
 
-    def train_model(self, regularisation, algorithm='2SRLS'):
+    def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
         self.spectral_filter(regularisation, return_values=False,
                 algorithm=algorithm)
         self._W =  self._U.dot(self._filtered_values * self._U.T.dot(
@@ -59,9 +59,23 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         return U_new.dot(self._W.dot(V_new.T))
 
-    def predict_LOOCV(self, regularization):
-        # hier komt LOOCV
-        return
+    def predict_LOOCV_rows_2SRLS(self, (reg_1, reg_2), mse=False):
+        """
+        Predict Y holdout for new rows using 2SRLS
+        set mse to True to only get mse estimated by LOOCV
+        """
+        filtered_values = self.spectral_filter((reg_1, reg_2), return_values=True,
+                algorithm='2SRLS')
+        Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
+                .dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
+        hat_u_diags = np.sum(self._U**2/(self._Sigma + reg_1)*self._Sigma)
+        residual_HOO = ((Y-Yhat).T/(1-hat_u_diags)).T
+        if mse:
+            return np.sum(residual_HOO**2)
+        else:
+            return self._Y - residual_HOO
+
+    #def
 
 class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
 
@@ -83,8 +97,8 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
             self._Y = np.dot(Y, C)
         self._U = U[:,Sigma>1e-12]  # eigenvectors first type of objects
         self._V = V[:,Delta>1e-12]  # eigenvectors second type of objects
-        self._Sigma = Sigma[Sigma>1e-12].reshape((-1, 1))  # eigenvalues of first type of objects
-        self._Delta = Delta[Delta>1e-12].reshape((-1, 1))  # eigenvalues of second type of objects
+        self._Sigma = Sigma[Sigma>1e-12]  # eigenvalues of first type of objects
+        self._Delta = Delta[Delta>1e-12]  # eigenvalues of second type of objects
 
 if __name__ == "__main__":
     import random as rd
@@ -97,7 +111,7 @@ if __name__ == "__main__":
     p_u = 20
     p_v = 10
 
-    noise = 1
+    noise = 0.1
 
     X_u = np.random.randn(n_u, p_u)
     K_u = np.dot(X_u, X_u.T)
@@ -107,15 +121,20 @@ if __name__ == "__main__":
 
     W = np.random.randn(p_u, p_v)
 
-    #Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
-    Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
+    Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
+    #Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
 
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
-    KRLS.train_model((10, 10))
+    KRLS.train_model((0.1, 0.1))
+    #KRLS.train_model(0.1, algorithm='KRLS')
     Yhat = KRLS.predict(K_u, K_v)
 
     print np.mean((Y-Yhat)**2)
 
+    print KRLS.predict_LOOCV_rows_2SRLS((.1,.1), mse = True)
+
+
+    """
     from sklearn.metrics import roc_auc_score
 
 
@@ -164,3 +183,4 @@ if __name__ == "__main__":
     print 'micro: %.5f' %micro_auc(Y, Yhat)
     print 'macro: %.5f' %macro_auc(Y, Yhat)
     print '='*50
+    """
