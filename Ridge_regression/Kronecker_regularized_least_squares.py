@@ -78,7 +78,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         else:
             return self._Y - residual_HOO
 
-    def predict_LOOCV_cols_2SRLS(self, reg, mse=False):
+    def predict_LOOCV_columns_2SRLS(self, reg, mse=False):
         """
         Predict Y holdout for new columns using 2SRLS
         Set mse to True to only get mse estimated by LOOCV
@@ -123,14 +123,13 @@ class KroneckerRegularizedLeastSquaresGeneral:
         for reg_1 in reg_1_grid:
             performance = self.predict_LOOCV_rows_2SRLS(reg_1, mse=True)
             if verbose:
-                print 'Regulariser u: %s gives MSE\
-                        of %s' %(reg_1, performance)
+                print 'Regulariser u: %s gives MSE of %s' %(reg_1, performance)
             if performance < self.best_performance_LOOCV:
                 best_reg1 = reg_1
                 self.best_performance_LOOCV = performance
         self.best_performance_LOOCV = 1e10
         for reg_2 in reg_2_grid:
-            performance = self.predict_LOOCV_rows_2SRLS(reg_2, mse=True)
+            performance = self.predict_LOOCV_columns_2SRLS(reg_2, mse=True)
             if performance < self.best_performance_LOOCV:
                 self.best_performance_LOOCV = performance
                 self.best_regularisation = (best_reg1, reg_2)
