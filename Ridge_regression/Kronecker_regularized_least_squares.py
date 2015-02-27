@@ -63,18 +63,14 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         return U_new.dot(self._W.dot(V_new.T))
 
-    def predict_LOOCV_rows_2SRLS(self, (reg_1, reg_2), mse=False):
+    def predict_LOOCV_rows_2SRLS(self, reg, mse=False):
         """
         Predict Y holdout for new rows using 2SRLS
         Set mse to True to only get mse estimated by LOOCV
         """
-        Yhat_v = self._Y\
-                .dot((self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T))
-        Yhat = ((self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T))\
-                .dot(Yhat_v)
-        #Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
-                #.dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
-        leverages = np.sum(self._U**2*self._Sigma/(self._Sigma + reg_1), 1)
+        Yhat = ((self._U*self._Sigma/(self._Sigma + reg)).dot(self._U.T))\
+                .dot(self._Y)
+        leverages = np.sum(self._U**2*self._Sigma/(self._Sigma + reg), 1)
         residual_HOO = ((Y-Yhat).T/(1-leverages))
         mse_loocv = np.mean(residual_HOO**2)
         if mse:
@@ -82,18 +78,14 @@ class KroneckerRegularizedLeastSquaresGeneral:
         else:
             return self._Y - residual_HOO
 
-    def predict_LOOCV_cols_2SRLS(self, (reg_1, reg_2), mse=False):
+    def predict_LOOCV_cols_2SRLS(self, reg, mse=False):
         """
-        Predict Y holdout for new rows using 2SRLS
+        Predict Y holdout for new columns using 2SRLS
         Set mse to True to only get mse estimated by LOOCV
         """
-        Yhat_v = self._Y\
-                .dot((self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T))
-        Yhat = ((self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T))\
-                .dot(Yhat_v)
-        #Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
-                #.dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
-        leverages = np.sum(self._V**2*self._Delta/(self._Delta + reg_2), 1)
+        Yhat = self._Y\
+                .dot((self._V*self._Delta/(self._Delta + reg)).dot(self._V.T))
+        leverages = np.sum(self._V**2*self._Delta/(self._Delta + reg), 1)
         residual_HOO = (Y-Yhat)*leverages
         mse_loocv = np.mean(residual_HOO**2)
         if mse:
@@ -129,13 +121,21 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False):
         self.best_performance_LOOCV = 1e10
         for reg_1 in reg_1_grid:
-            for reg_2 in reg_2_grid:
-                performance = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2), mse=True)
-                if performance < self.best_performance_LOOCV:
-                    self.best_performance_LOOCV = performance
-                    self.best_regularisation = (reg_1, reg_2)
-                if verbose:
-                    print 'Regulariser u: %s, Regulariser v: %s gives MSE of %s' %(reg_1, reg_2, performance)
+            performance = self.predict_LOOCV_rows_2SRLS(reg_1, mse=True)
+            if verbose:
+                print 'Regulariser u: %s gives MSE\
+                        of %s' %(reg_1, performance)
+            if performance < self.best_performance_LOOCV:
+                best_reg1 = reg_1
+                self.best_performance_LOOCV = performance
+        self.best_performance_LOOCV = 1e10
+        for reg_2 in reg_2_grid:
+            performance = self.predict_LOOCV_rows_2SRLS(reg_2, mse=True)
+            if performance < self.best_performance_LOOCV:
+                self.best_performance_LOOCV = performance
+                self.best_regularisation = (best_reg1, reg_2)
+            if verbose:
+                print 'Regulariser u: %s, Regulariser v: %s gives MSE of %s' %(reg_1, reg_2, performance)
         self.train_model(self.best_regularisation, algorithm='2SRLS')
 
     def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False):
@@ -218,8 +218,6 @@ if __name__ == "__main__":
     Yhat = KRLS.predict(K_u, K_v)
 
     print np.mean((Y-Yhat)**2)
-
-    print KRLS.predict_LOOCV_rows_2SRLS((.1,.1), mse = True)
 
     print 'Testing for two-step RLS'
 
