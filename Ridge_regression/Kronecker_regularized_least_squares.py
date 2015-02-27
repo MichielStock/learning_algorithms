@@ -1,6 +1,6 @@
 """
 Created on Tue Feb 17 2015
-Last update: Wed Feb 25 2015
+Last update: Fri Feb 27 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -65,7 +65,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def predict_LOOCV_rows_2SRLS(self, (reg_1, reg_2), mse=False):
         """
         Predict Y holdout for new rows using 2SRLS
-        set mse to True to only get mse estimated by LOOCV
+        Set mse to True to only get mse estimated by LOOCV
         """
         filtered_values = self.spectral_filter((reg_1, reg_2), return_values=True,
                 algorithm='2SRLS')
@@ -89,6 +89,31 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 if verbose:
                     print 'Regulariser u: %s, Regulariser v: %s gives MSE of %s' %(reg_1, reg_2, performance)
         self.train_model(self.best_regularisation, algorithm='2SRLS')
+
+    def predict_LOOCV_rows_KRLS(self, reg, mse=False):
+        """
+        Uses a semi-efficient way to predict Y holdout for new rows using KRLS
+        set mse to True to only get mse estimated by LOOCV
+        """
+        K_u = (self._U*self._Sigma).dot(self._U.T)  # recover kernel matrix for u
+        K_v = (self._V*self._Delta).dot(self._V.T)  # recover kernel matrix for v
+        n_instances = len(K_u)
+        Y_loocv = np.zeros(self._Y.shape)
+        for row_indice in range(n_instances):
+            #  perform eigendecomposition of matrix with one instance removed
+            Sigma_min_i, U_min_i = np.linalg.eigh(\
+                    np.delete(np.delete(K_u, row_indice, 0), row_indice, 1))
+            temp_model = KroneckerRegularizedLeastSquaresGeneral(\
+                    np.delete(self._Y, row_indice, 0), U_min_i, Sigma_min_i,\
+                    self._V, self._Delta)
+            temp_model.train_model(reg, algorithm='KRLS')
+            Y_loocv[row_indice] = temp_model.predict(\
+                    np.delete(K_u[row_indice], row_indice, 0),\
+                    K_v)
+        if mse:
+            return np.mean((Y_loocv - self._Y)**2)
+        else:
+            return Y_loocv
 
     def get_norm(self):
         """
