@@ -115,6 +115,17 @@ class KroneckerRegularizedLeastSquaresGeneral:
         else:
             return Y_loocv
 
+    def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False):
+        self.best_performance_LOOCV = 1e10
+        for reg in reg_grid:
+            performance = self.predict_LOOCV_rows_KRLS(reg, mse=True)
+            if performance < self.best_performance_LOOCV:
+                self.best_performance_LOOCV = performance
+                self.best_regularisation = reg
+            if verbose:
+                print 'Regulariser: %s gives MSE of %s' %(reg, performance)
+        self.train_model(self.best_regularisation, algorithm='KRLS')
+
     def get_norm(self):
         """
         Returns the norm of the trained model
@@ -149,8 +160,8 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 480
-    n_v = 600
+    n_u = 280
+    n_v = 300
 
     # dimension of objects
     p_u = 180
@@ -178,8 +189,11 @@ if __name__ == "__main__":
 
     print KRLS.predict_LOOCV_rows_2SRLS((.1,.1), mse = True)
 
+    print 'Testing for two-step RLS'
+
     KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
         [10**i for i in range(-10, 10)], verbose = True)
+
 
     print KRLS.best_performance_LOOCV
     print KRLS.best_regularisation
@@ -189,6 +203,17 @@ if __name__ == "__main__":
 
     Yhat_new = KRLS.predict(X_u_new.dot(X_u.T), K_v)
     print np.mean((Ynew-Yhat_new)**2)
+
+    print 'Testing for Kronecker ridge regression'
+
+    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-10, 10)],\
+            verbose = True)
+
+    print KRLS.best_performance_LOOCV
+    print KRLS.best_regularisation
+
+
+
 
     """
     from sklearn.metrics import roc_auc_score
