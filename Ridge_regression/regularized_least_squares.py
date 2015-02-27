@@ -1,6 +1,6 @@
 """
 Created on Wed Nov 2 2014
-Last update: Mon Jan 7 2015
+Last update: Fri Feb 27 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -86,7 +86,10 @@ class RegularizedLeastSquaresGeneral:
         # estimate training error
         Yhat = (self._eigvects*(self._filtered_values*self._eigvals)).dot(
                 np.dot(self._eigvects.T, self._Y))
-        self._mse_train = np.linalg.norm(Yhat-self._Y, ord = 2)**2  # Frobenius
+        UTY = self._eigvects.T.dot(self._Y)
+        self.model_norm = np.sum((UTY.T*self._filtered_values*self._eigvals)\
+                .dot(UTY))**0.5
+        self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
 
     def generate_W(self):
         '''
@@ -192,14 +195,15 @@ class RegularizedLeastSquaresGeneral:
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
-    def __repr__(self):
+    def __str__(self):
         print 'General RLS model'
         print 'Dimensionality of output is %s' %self._Y.shape[1]
         if hasattr(self, '_filtered_values'):
-            print 'MSE train is %s' %self._mse_train
+            print 'MSE train is %s' %self.mse_train
             print 'MSE LOOCV is %s' %self.predict_LOOCV(predictions = False,
                                                         MSE = True)
             print 'Regularization is %s' %np.mean(self._regularization)
+            print 'Model norm is %s' %self.model_norm
         return ''
 
 class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
