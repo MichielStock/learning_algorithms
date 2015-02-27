@@ -68,14 +68,17 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Predict Y holdout for new rows using 2SRLS
         Set mse to True to only get mse estimated by LOOCV
         """
-        filtered_values = self.spectral_filter((reg_1, reg_2), return_values=True,
-                algorithm='2SRLS')
-        Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
-                .dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
-        hat_u_diags = np.sum(self._U**2/(self._Sigma + reg_1)*self._Sigma, 1)
+        Yhat_v = self._Y\
+                .dot((self._V/(self._Delta + reg_2)).dot(self._V.T))
+        Yhat = ((self._U/(self._Sigma + reg_1)).dot(self._U.T))\
+                .dot(Yhat_v)
+        #Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
+                #.dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
+        hat_u_diags = self._Sigma/(self._Sigma + reg_1)
         residual_HOO = ((Y-Yhat).T/(1-hat_u_diags)).T
+        self.mse_train = np.mean(residual_HOO**2)
         if mse:
-            return np.mean(residual_HOO**2)
+            return self.mse_train
         else:
             return self._Y - residual_HOO
 
@@ -133,6 +136,14 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         return self.model_norm
 
+    def __str__(self):
+        print 'Kronecker RLS model'
+        print 'Dimensionality of label matrix is (%s, %s)' %self._Y.shape
+        if hasattr(self, '_filtered_values'):
+            print 'MSE train is %s' %self.mse_train
+            print 'Model norm is %s' %self.model_norm
+        return ''
+
 
 class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
 
@@ -162,11 +173,11 @@ if __name__ == "__main__":
 
     # number of objects
     n_u = 100
-    n_v = 200
+    n_v = 2000
 
     # dimension of objects
     p_u = 180
-    p_v = 150
+    p_v = 100
 
     noise = 10
 
@@ -178,8 +189,8 @@ if __name__ == "__main__":
 
     W = np.random.randn(p_u, p_v)
 
-    #Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
-    Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
+    Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
+    #Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
 
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
     KRLS.train_model((0.1, 0.1))
@@ -192,13 +203,13 @@ if __name__ == "__main__":
 
     print 'Testing for two-step RLS'
 
-    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
-        [10**i for i in range(-10, 10)], verbose = True)
+    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-5, 5)],\
+        [10**i for i in range(-5, 5)], verbose = True)
 
 
     print KRLS.best_performance_LOOCV
     print KRLS.best_regularisation
-
+    KRLS.train_model((1, 1))
     X_u_new = np.random.randn(n_u, p_u)
     Ynew = X_u_new.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
 
@@ -207,7 +218,7 @@ if __name__ == "__main__":
 
     print 'Testing for Kronecker ridge regression'
 
-    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-10, 10)],\
+    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-5, 5)],\
             verbose = True)
 
     print KRLS.best_performance_LOOCV
