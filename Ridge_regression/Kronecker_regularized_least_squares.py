@@ -49,6 +49,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         self._W =  self._U.dot(projected_labels_filtered).dot(self._V.T)
         self.model_norm = np.sum(np.dot(self._Sigma.reshape((-1, 1)),\
                 self._Delta.reshape((-1, 1)).T)*projected_labels_filtered**2)
+        self.model_norm = self.model_norm**0.5
 
     def get_parameters(self):
         """
@@ -160,8 +161,8 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 280
-    n_v = 300
+    n_u = 100
+    n_v = 200
 
     # dimension of objects
     p_u = 180
@@ -177,8 +178,8 @@ if __name__ == "__main__":
 
     W = np.random.randn(p_u, p_v)
 
-    Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
-    #Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
+    #Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
+    Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
 
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
     KRLS.train_model((0.1, 0.1))
