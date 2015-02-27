@@ -69,13 +69,13 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Set mse to True to only get mse estimated by LOOCV
         """
         Yhat_v = self._Y\
-                .dot((self._V/(self._Delta + reg_2)).dot(self._V.T))
-        Yhat = ((self._U/(self._Sigma + reg_1)).dot(self._U.T))\
+                .dot((self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T))
+        Yhat = ((self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T))\
                 .dot(Yhat_v)
         #Yhat = ((self._U.dot(np.diag(self._Sigma)).dot(filtered_values*(self._U.T\
                 #.dot(self._Y).dot(self._V))))*self._Delta).dot(self._V.T)
-        hat_u_diags = self._Sigma/(self._Sigma + reg_1)
-        residual_HOO = ((Y-Yhat).T/(1-hat_u_diags)).T
+        leverages = np.sum(self._U**2*self._Sigma/(self._Sigma + reg_1), 1)
+        residual_HOO = ((Y-Yhat).T/(1-leverages))
         self.mse_train = np.mean(residual_HOO**2)
         if mse:
             return self.mse_train
