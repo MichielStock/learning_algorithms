@@ -63,21 +63,17 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         return U_new.dot(self._W.dot(V_new.T))
 
-    def predict_LOOCV_rows_2SRLS(self, reg, preds=True, mse=False, Ynew=None):
+    def predict_LOOCV_rows_2SRLS(self, (reg_1, reg_2), preds=True, mse=False):
         """
         Uses LOOCV for the rows to estimate the mse,
         preds: return predictions
         mse: return mse estimated for LOOCV
-        Ynew: use new data set
         """
-        if Ynew is not None:
-            Yhat = ((self._U*self._Sigma/(self._Sigma + reg)).dot(self._U.T))\
-                    .dot(Ynew)
-        else:
-            Yhat = ((self._U*self._Sigma/(self._Sigma + reg)).dot(self._U.T))\
-                    .dot(self._Y)
-        leverages = np.sum(self._U**2*self._Sigma/(self._Sigma + reg), 1)
-        residual_HOO = (((Y-Yhat).T/(1-leverages))).T
+        hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
+        hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
+        leverages = np.diag(hat_matrix_u)
+        Yhat = np.dot(hat_matrix_u, self._Y).dot(hat_matrix_v)
+        residual_HOO = (((self._Y-Yhat).T/(1-leverages))).T
         mse_loocv = np.mean(residual_HOO**2)
         if mse and not preds:
             return mse_loocv
@@ -86,21 +82,17 @@ class KroneckerRegularizedLeastSquaresGeneral:
         elif mse and preds:
             return self._Y - residual_HOO, mse_loocv
 
-    def predict_LOOCV_columns_2SRLS(self, reg, preds=True, mse=False, Ynew=None):
+    def predict_LOOCV_colums_2SRLS(self, (reg_1, reg_2), preds=True, mse=False):
         """
-        Uses LOOCV for the columns to estimate the mse,
+        Uses LOOCV for the colums to estimate the mse,
         preds: return predictions
         mse: return mse estimated for LOOCV
-        Ynew: use new data set
         """
-        if Ynew is not None:
-            Yhat = Ynew\
-                    .dot((self._V*self._Delta/(self._Delta + reg)).dot(self._V.T))
-        else:
-            Yhat = self._Y\
-                    .dot((self._V*self._Delta/(self._Delta + reg)).dot(self._V.T))
-        leverages = np.sum(self._V**2*self._Delta/(self._Delta + reg), 1)
-        residual_HOO = ((Y-Yhat)/(1-leverages))
+        hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
+        hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
+        leverages = np.diag(hat_matrix_v)
+        Yhat = np.dot(hat_matrix_u, self._Y).dot(hat_matrix_v)
+        residual_HOO = (((self._Y-Yhat)/(1-leverages)))
         mse_loocv = np.mean(residual_HOO**2)
         if mse and not preds:
             return mse_loocv
