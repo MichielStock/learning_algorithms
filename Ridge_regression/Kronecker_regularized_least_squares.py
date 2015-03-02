@@ -1,6 +1,6 @@
 """
 Created on Tue Feb 17 2015
-Last update: Fri Feb 27 2015
+Last update: Mon Mar 2 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -101,6 +101,27 @@ class KroneckerRegularizedLeastSquaresGeneral:
         elif mse and preds:
             return self._Y - residual_HOO, mse_loocv
 
+    def predict_LOOCV_both_2SRLS(self, (reg_1, reg_2), preds=True, mse=False):
+        """
+        Uses LOOCV for the new objects to estimate the mse,
+        preds: return predictions
+        mse: return mse estimated for LOOCV
+        """
+        hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
+        hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
+        leverages_u = np.diag(hat_matrix_u)
+        leverages_v = np.diag(hat_matrix_v)
+        Yhat = np.dot(hat_matrix_u, self._Y).dot(hat_matrix_v)
+        residual_HOO = (((self._Y-Yhat)/(1-leverages_v)))
+        residual_HOO = (residual_HOO.T/(1-leverages_u)).T
+        mse_loocv = np.mean(residual_HOO**2)
+        if mse and not preds:
+            return mse_loocv
+        elif not mse and preds:
+            return self._Y - residual_HOO
+        elif mse and preds:
+            return self._Y - residual_HOO, mse_loocv
+
     def predict_LOOCV_rows_KRLS(self, reg, mse=False):
         """
         Uses a semi-efficient way to predict Y holdout for new rows using KRLS
@@ -127,26 +148,13 @@ class KroneckerRegularizedLeastSquaresGeneral:
             return Y_loocv
 
     def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False):
+        """
+        Seaches for the combination of paramters that give the best generalization
+        error where both items are new
+        """
+
         self.best_performance_LOOCV = 1e10
-        for reg_1 in reg_1_grid:
-            Ynew, performance = self.predict_LOOCV_rows_2SRLS(reg_1,\
-                    preds=True, mse=True)
-            if verbose:
-                print 'Regulariser u: %s gives MSE of %s' %(reg_1, performance)
-            if performance < self.best_performance_LOOCV:
-                best_reg_1 = reg_1
-                self.best_performance_LOOCV = performance
-                Ynew_best = Ynew
-        self.best_performance_LOOCV = 1e10
-        for reg_2 in reg_2_grid:
-            performance = self.predict_LOOCV_columns_2SRLS(reg_1,\
-                    preds=False, mse=True, Ynew=Ynew_best)
-            if performance < self.best_performance_LOOCV:
-                self.best_performance_LOOCV = performance
-                self.best_regularisation = (best_reg_1, reg_2)
-            if verbose:
-                print 'Regulariser u: %s, Regulariser v: %s gives MSE of %s' %(reg_1, reg_2, performance)
-        self.train_model(self.best_regularisation, algorithm='2SRLS')
+        # to be completed
 
     def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False):
         self.best_performance_LOOCV = 1e10
