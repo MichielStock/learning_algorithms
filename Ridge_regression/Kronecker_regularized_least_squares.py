@@ -31,11 +31,11 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         if algorithm == '2SRLS':
             lambda_u, lambda_v = regularisation
-            self._filtered_values = 1/np.dot((self._Sigma.reshape((-1, 1))\
-                + lambda_u), (self._Delta.reshape((-1, 1)) + lambda_v).T)
+            self._filtered_values = 1/np.dot((self._Sigma.reshape((-1, 1), order='F')\
+                + lambda_u), (self._Delta.reshape((-1, 1), order='F') + lambda_v).T)
         elif algorithm == 'KRLS':
-            self._filtered_values = 1/(np.dot(self._Sigma.reshape((-1, 1)),\
-                self._Delta.reshape((-1, 1)).T) + regularisation)
+            self._filtered_values = 1/(np.dot(self._Sigma.reshape((-1, 1), order='F'),\
+                self._Delta.reshape((-1, 1), order='F').T) + regularisation)
         else:
             raise KeyError
         if return_values:
@@ -154,7 +154,17 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
 
         self.best_performance_LOOCV = 1e10
-        # to be completed
+        for reg_1 in reg_1_grid:
+            for reg_2 in reg_2_grid:
+                performance = self.predict_LOOCV_both_2SRLS((reg_1, reg_2),\
+                        preds=False, mse=True)
+                print 'Regulariser pair (%s, %s) gives MSE of %s'\
+                        %(reg_1, reg_2, performance)
+                if performance < self.best_performance_LOOCV:
+                    self.best_performance_LOOCV = performance
+                    self.best_regularisation = (reg_1, reg_2)
+        self.train_model(self.best_regularisation, algorithm='2SRLS')
+
 
     def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False):
         self.best_performance_LOOCV = 1e10
@@ -230,8 +240,22 @@ if __name__ == "__main__":
     Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
     #Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
 
+
+
+
+
+
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
     KRLS.train_model((0.1, 0.1))
+
+
+    # testing LOOCV
+    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((1, 10000))[0]
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:, 1:], K_v)
+    KRLS_HO.train_model((1, 10000), '2SRLS')
+    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
+
+
     #KRLS.train_model(0.1, algorithm='KRLS')
     Yhat = KRLS.predict(K_u, K_v)
 
@@ -239,8 +263,12 @@ if __name__ == "__main__":
 
     print 'Testing for two-step RLS'
 
-    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-5, 5)],\
+    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
         [10**i for i in range(-5, 5)], verbose = True)
+
+    print 'Estimated row CV error: %s'\
+            %KRLS.predict_LOOCV_rows_2SRLS(KRLS.best_regularisation, preds=False,\
+                    mse=True)
 
 
     print KRLS.best_performance_LOOCV
@@ -254,7 +282,7 @@ if __name__ == "__main__":
 
     print 'Testing for Kronecker ridge regression'
 
-    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-5, 5)],\
+    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-2, 10)],\
             verbose = True)
 
     print KRLS.best_performance_LOOCV
