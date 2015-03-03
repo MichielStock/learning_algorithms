@@ -250,9 +250,9 @@ if __name__ == "__main__":
 
 
     # testing LOOCV
-    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((1, 10000))[0]
+    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((1e-7, 1e-7))[0]
     KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:, 1:], K_v)
-    KRLS_HO.train_model((1, 10000), '2SRLS')
+    KRLS_HO.train_model((1e-7, 1e-7), '2SRLS')
     row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
 
 
