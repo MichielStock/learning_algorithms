@@ -10,22 +10,6 @@ Implementations of the RLS methods for one object
 
 import numpy as np
 
-def svd_long_matrix(matrix, epsilon=1e-5):
-    """
-    Performs a singular value decomposition of a matrix with more
-    rows than columns
-    returns U, Esq, VE
-    """
-    XTX = np.dot(matrix.T, matrix)
-    Esq, V = np.linalg.eigh(XTX)
-    V = V[:, Esq>epsilon]
-    Esq = Esq[Esq>epsilon]
-    VE = V*(Esq**0.5)
-    del XTX  # remove to free space
-    U = X.dot(VE)/Esq
-    return U, Esq, VE
-
-
 class RegularizedLeastSquaresGeneral:
     """
     Implementation of the regularized least squares,
@@ -51,7 +35,6 @@ class RegularizedLeastSquaresGeneral:
         assert np.all(l) > 0  # ensure numerical stability
         # apply the spectral filter on the eigenvalues
         print 'This is only for theoretical purposes'
-        print 'Cannot do predictions'
         Yhat = (self._U * self._Sigma*(self._Sigma + l)**-1).dot(self._U.T)\
                 .dot(self._Y)
         self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
@@ -60,7 +43,7 @@ class RegularizedLeastSquaresGeneral:
         """
         Returns the estimated parameter vector/matrix
         """
-        if not hasattr(self, '_W'):
+        if hasattr(self, '_W'):
             return self._W
         else: raise AttributeError
 
@@ -95,23 +78,23 @@ class RegularizedLeastSquaresGeneral:
         return predictions_HOO
         '''
 
-    def predict_LOOCV(self, l = None, predictions = True, MSE = False):
+    def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
         """
         Makes a prediction for each instance by means of leave-one-out
         cross validation
         returns the estimated labels for each instance (if predictions is True)
         and/or estimated mean squared error (if MSE is True)
         """
-        Hat = self._U*(self._Sigma/(self._Sigma + l)**-1).dot(self._U.T)
+        Hat = (self._U*(self._Sigma/(self._Sigma + l))).dot(self._U.T)
         leverages = np.diag(Hat)
-        upper_part = self._Y - self._U.dot(self._U.T) - Hat * l
-        loo_residuals = (upper_part.T/(1 - leverages))
+        upper_part = self._Y - Hat.dot(self._Y)
+        loo_residuals = (upper_part.T/(1 - leverages)).T
         if MSE:
             MSE = np.mean((loo_residuals)**2)
         if predictions and MSE:
-            return self._Y + loo_residuals, MSE
+            return self._Y - loo_residuals, MSE
         if predictions and not MSE:
-            return self._Y + loo_residuals
+            return self._Y - loo_residuals
         if not predictions and MSE:
             return MSE
         else:
@@ -137,17 +120,6 @@ class RegularizedLeastSquaresGeneral:
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
-    def __str__(self):
-        print 'General RLS model'
-        print 'Dimensionality of output is %s' %self._Y.shape[1]
-        if hasattr(self, '_filtered_values'):
-            print 'MSE train is %s' %self.mse_train
-            print 'MSE LOOCV is %s' %self.predict_LOOCV(predictions = False,
-                                                        MSE = True)
-            print 'Regularization is %s' %np.mean(self._regularization)
-            print 'Model norm is %s' %self.model_norm
-        return ''
-
 class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     """
     Implementation of the standard regularized least squares,
@@ -155,6 +127,31 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     Input: a vector or matrix Y containing the labels, a matrix X with
     the features
     """
+    def __init__(self, Y, X):
+        """
+        Initialization of the instances, works with decomposition of X
+        Sigma contains the SQUARED eigenvalues
+        """
+        U, Sigma_sqrt, VT = np.linalg.svd(X, full_matrices=False)
+        self._X = X
+        self._Y = Y
+        self._U = U
+        self._V = VT.T  # use transpose to be algebraic correct
+        self._Sigma = Sigma_sqrt**2  # need square for implementation
+        self._N, self._P = U.shape
+
+    def train_model(self, l = 1.0):
+        """
+        Trains model and calculates mse
+        """
+        assert np.all(l) > 0  # ensure numerical stability
+        # apply the spectral filter on the eigenvalues
+        self._W = (self._V * (self._Sigma + l)**-1).dot(self._V.T).dot(np.dot(self._X.T, self._Y))
+        Yhat = self._X.dot(self._W)
+        self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
+
+    def predict(self, Xnew):
+        return np.dot(Xnew, self._W)
 
 
 class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
@@ -173,13 +170,9 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         """
         self._Y = Y
         self._N = Y.shape[0]
-        assert self._N == K.shape[0] and self._N == K.shape[0]
+        assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
-        eigvals, eigvects = np.linalg.eigh(K)
-        # remove eigenvalues smaller than epsilon
-        epsilon = 1e-10
-        self._eigvals = eigvals[eigvals>epsilon]
-        self._eigvects = eigvects[:,eigvals>epsilon]
+        self._Sigma, self._U = np.linalg.eigh(K)
 
     def generate_W(self):
         '''
@@ -205,7 +198,7 @@ if __name__ == "__main__":
 
     X = np.random.randn(n, p)
     w = np.random.rand(p, k)*5
-    y = np.dot(X, w) + np.random.randn(n, k)/2
+    y = np.dot(X, w) + np.random.randn(n, k)
 
     if test_linear:
         RLS = RegularizedLeastSquares(y, X)
@@ -213,12 +206,14 @@ if __name__ == "__main__":
         for i in range(p):
             print w[i], RLS.get_parameters()[i]
 
+        """
         HO_set = rd.sample(range(n), n/10)
         Yhat = RLS.predict_HOO(HO_set, 0.01)
         print Yhat.shape
 
         for i in range(n/10):
             print Yhat[i], y[HO_set[i]]
+        """
 
         CVpreds = RLS.predict_LOOCV()
         for i in range(n):
@@ -243,7 +238,9 @@ if __name__ == "__main__":
     # test if LOOCV works
     RLS = RegularizedLeastSquares(y, X)
     RLS.train_model(l = 5)
-    hoo_ther = RLS.predict_LOOCV(l = 5)[0]
+    hoo_ther = RLS.predict_LOOCV(l = 0.001)[0]
     RLS_ho = RegularizedLeastSquares(y[1:], X[1:])
-    RLS_ho.train_model(l = 5)
+    RLS_ho.train_model(l = 0.001)
     ho_exp = RLS_ho.predict(X[0])
+
+    print hoo_ther, ho_exp
