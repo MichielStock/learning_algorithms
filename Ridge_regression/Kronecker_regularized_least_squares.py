@@ -20,6 +20,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         self._V = V  # eigenvectors second type of objects
         self._Sigma = Sigma  # eigenvalues of first type of objects
         self._Delta = Delta  # eigenvalues of second type of objects
+        self._N, self._M = Y.shape
 
     def spectral_filter(self, regularisation, return_values=False,
                 algorithm='2SRLS'):
@@ -35,7 +36,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 + lambda_u), (self._Delta.reshape((-1, 1), order='F') + lambda_v).T)
         elif algorithm == 'KRLS':
             self._filtered_values = 1/(np.dot(self._Sigma.reshape((-1, 1), order='F'),\
-                self._Delta.reshape((-1, 1), order='F').T) + regularisation)
+                self._Delta.reshape((1, -1), order='F')) + regularisation)
         else:
             raise KeyError
         if return_values:
@@ -71,9 +72,9 @@ class KroneckerRegularizedLeastSquaresGeneral:
         """
         hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
         hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
-        leverages = np.diag(hat_matrix_u)
-        Yhat = np.dot(hat_matrix_u, self._Y).dot(hat_matrix_v)
-        residual_HOO = (((self._Y-Yhat).T/(1-leverages))).T
+        leverages_u = np.diag(hat_matrix_u)
+        residuals = self._Y - hat_matrix_u.dot(self._Y).dot(hat_matrix_v)
+        residual_HOO = (residuals.T/(1 - leverages_u)).T
         mse_loocv = np.mean(residual_HOO**2)
         if mse and not preds:
             return mse_loocv
@@ -216,6 +217,28 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
         self._Sigma = Sigma[Sigma>1e-12]  # eigenvalues of first type of objects
         self._Delta = Delta[Delta>1e-12]  # eigenvalues of second type of objects
 
+    def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
+        self.spectral_filter(regularisation, return_values=False,
+                algorithm=algorithm)
+        projected_labels_filtered = self._filtered_values * self._U.T.dot(\
+                self._Y.dot(self._V))
+        self._A =  self._U.dot(projected_labels_filtered).dot(self._V.T)
+        self.model_norm = np.sum(np.dot(self._Sigma.reshape((-1, 1)),\
+                self._Delta.reshape((-1, 1)).T)*projected_labels_filtered**2)
+        self.model_norm = self.model_norm**0.5
+
+    def get_parameters(self):
+        """
+        Returns the estimated parameter vector/matrix
+        """
+        return self._A
+
+    def predict(self, K_u_new, K_v_new):
+        """
+        Make new prediction for U_new and V_new
+        """
+        return K_u_new.dot(self._A.dot(K_v_new.T))
+
 if __name__ == "__main__":
     import random as rd
 
@@ -227,7 +250,7 @@ if __name__ == "__main__":
     p_u = 180
     p_v = 1000
 
-    noise = 10
+    noise = 1
 
     X_u = np.random.randn(n_u, p_u)
     K_u = np.dot(X_u, X_u.T)
@@ -242,18 +265,17 @@ if __name__ == "__main__":
 
 
 
-
-
-
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
     KRLS.train_model((0.1, 0.1))
 
 
     # testing LOOCV
-    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((1e-7, 1e-7))[0]
+    KRLS.train_model((1,10))
+    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((1, 10))[0]
     KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:, 1:], K_v)
-    KRLS_HO.train_model((1e-7, 1e-7), '2SRLS')
+    KRLS_HO.train_model((1, 10), '2SRLS')
     row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
+    print 'must be the same:', row_HO_ther, row_HO_exp
 
 
     #KRLS.train_model(0.1, algorithm='KRLS')

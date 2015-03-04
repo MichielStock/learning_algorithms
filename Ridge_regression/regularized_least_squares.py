@@ -235,7 +235,7 @@ if __name__ == "__main__":
         RLS_ho.train_model(l = 0.001)
         ho_exp = RLS_ho.predict(X[0])
 
-        print hoo_ther, ho_exp
+        print 'Should be the same:',hoo_ther, ho_exp
 
 
     if test_kernel:
