@@ -64,12 +64,14 @@ class RegularizedLeastSquaresGeneral:
         mask_train_indices = np.ones(self._N, dtype=bool)
         mask_train_indices[val_inds] = False  # mask for training indices
         eigenvectors_HO = self._U[val_inds]
-        P = eigenvectors_HO*self._Sigma/(self._Sigma + l)
-        submatrix = np.linalg.inv(
-                P.dot(eigenvectors_HO.T) - np.eye(number_inds) )
-        predictions_HOO = (P + eigenvectors_HO.dot(P.T).dot(submatrix).dot(P))\
-                .dot(np.dot(self._U[mask_train_indices].T,\
-                self._Y[mask_train_indices]))
+        eigvect_weighted_HO = eigenvectors_HO*self._Sigma/(self._Sigma + l)
+        eigenvectors_HI = self._U[mask_train_indices]
+        delearner = np.linalg.inv(eigvect_weighted_HO.dot(eigvect_weighted_HO.T) -\
+                np.eye(number_inds))
+        predictions_HOO = eigenvectors_HO.dot(\
+                np.diag(self._Sigma/(self._Sigma + l)) - \
+                np.dot(eigvect_weighted_HO.T, delearner.dot(eigvect_weighted_HO))).dot(\
+                np.dot(eigenvectors_HI.T, self._Y[mask_train_indices]))
         return predictions_HOO
 
     def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
@@ -93,7 +95,6 @@ class RegularizedLeastSquaresGeneral:
             return MSE
         else:
             print 'You have to specify to calculate something!'
-
 
     def LOOCV_model_selection(self, l_grid):
         """
@@ -167,8 +168,8 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
         self._Sigma, self._U = np.linalg.eigh(K)
-        self._U = self._U[:, self._Sigma > 1e-6]
-        self._Sigma = self._Sigma[self._Sigma > 1e-6]
+        self._U = self._U[:, self._Sigma > 1e-8]
+        self._Sigma = self._Sigma[self._Sigma > 1e-8]
 
     def train_model(self, l = 1.0):
         """
@@ -194,7 +195,7 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
 if __name__ == "__main__":
     import random as rd
 
-    test_linear = False
+    test_linear = True
     test_kernel = True
 
     n = 1000  # number of instances
@@ -203,7 +204,7 @@ if __name__ == "__main__":
 
     X = np.random.randn(n, p)
     w = np.random.rand(p, k)*5
-    y = np.dot(X, w) + np.random.randn(n, k)*100
+    y = np.dot(X, w) + np.random.randn(n, k)
 
     if test_linear:
         RLS = RegularizedLeastSquares(y, X)
@@ -243,10 +244,17 @@ if __name__ == "__main__":
         KRLS.train_model(1)
         YhatK = KRLS.predict(K)
         print KRLS.get_parameters()
-        '''
-        HO_set = rd.sample(range(n), n/10)
-        YHOO =  KRLS.predict_HOO(HO_set, 1)
+        indices = range(n)
+        rd.shuffle(indices)
+        HO_set = indices[:n/10]
+        HI_set = indices[n/10:]
+        YHOO =  KRLS.predict_HOO(HO_set, 10)
+
+        KRLS_HO = KernelRegularizedLeastSquares(y[HI_set],\
+                X[HI_set].dot(X[HI_set].T))
+        KRLS_HO.train_model(10)
+        YHOO_exp = KRLS_HO.predict(X[HO_set].dot(X[HI_set].T))
         for i in range(n/10):
-            print y[HO_set[i]], YHOO[i]
-        '''
+            print y[HO_set[i]], YHOO[i], YHOO_exp[i]
+
         print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
