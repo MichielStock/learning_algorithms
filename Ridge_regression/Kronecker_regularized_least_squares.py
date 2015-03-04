@@ -20,7 +20,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         self._V = V  # eigenvectors second type of objects
         self._Sigma = Sigma  # eigenvalues of first type of objects
         self._Delta = Delta  # eigenvalues of second type of objects
-        self._N, self._M = Y.shape
+        self.n_u, self.n_v = Y.shape
 
     def spectral_filter(self, regularisation, return_values=False,
                 algorithm='2SRLS'):
@@ -216,6 +216,7 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
         self._V = V[:,Delta>1e-12]  # eigenvectors second type of objects
         self._Sigma = Sigma[Sigma>1e-12]  # eigenvalues of first type of objects
         self._Delta = Delta[Delta>1e-12]  # eigenvalues of second type of objects
+        self.n_u, self.n_v = Y.shape
 
     def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
         self.spectral_filter(regularisation, return_values=False,
@@ -243,12 +244,12 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 100
-    n_v = 200
+    n_u = 400
+    n_v = 6
 
     # dimension of objects
-    p_u = 180
-    p_v = 1000
+    p_u = 18
+    p_v = 10
 
     noise = 1
 
@@ -270,12 +271,14 @@ if __name__ == "__main__":
 
 
     # testing LOOCV
+    KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
     KRLS.train_model((1,10))
-    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((1, 10))[0]
-    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:, 1:], K_v)
-    KRLS_HO.train_model((1, 10), '2SRLS')
-    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
-    print 'must be the same:', row_HO_ther, row_HO_exp
+    row_HO_ther = KRLS.predict_LOOCV_both_2SRLS((1, 10))[0, 0]
+
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:][:, 1:], K_u[1:][:, 1:], K_v[1:][:, 1:])
+    KRLS_HO.train_model((10, 10), '2SRLS')
+    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v[0, 1:])
+    print 'must be the same:', Y[0,0], row_HO_ther, row_HO_exp
 
 
     #KRLS.train_model(0.1, algorithm='KRLS')
