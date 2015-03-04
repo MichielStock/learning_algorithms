@@ -51,30 +51,26 @@ class RegularizedLeastSquaresGeneral:
         """
         self._Y = Y
 
-    '''
-    def predict_HOO(self, val_inds, l = None):
+
+    def predict_HOO(self, val_inds, l = 1.0):
         """
         Makes a prediction for the instances indexed by val_inds, by using a
         model trained by all the remaining instances
-        Optinally give a new lamda parameter
+        Always provide a regularization parameter
         returns: estimated labels for tuning instances, parameters estimated
         on the train set
         """
-        if l:
-            self.spectral_filter(l)
-        else:
-            l = self._regularization
         number_inds = len(val_inds)
         mask_train_indices = np.ones(self._N, dtype=bool)
         mask_train_indices[val_inds] = False  # mask for training indices
-        eigenvectors_HO = self._eigvects[val_inds]
-        P = eigenvectors_HO*self._filtered_values*self._eigvals
+        eigenvectors_HO = self._U[val_inds]
+        P = eigenvectors_HO*self._Sigma/(self._Sigma + l)
         submatrix = np.linalg.inv(
                 P.dot(eigenvectors_HO.T) - np.eye(number_inds) )
-        predictions_HOO = (P + eigenvectors_HO.dot(P.T).dot(submatrix).dot(P)).dot(np.dot(self._eigvects[
-                mask_train_indices].T, self._Y[mask_train_indices]))
+        predictions_HOO = (P + eigenvectors_HO.dot(P.T).dot(submatrix).dot(P))\
+                .dot(np.dot(self._U[mask_train_indices].T,\
+                self._Y[mask_train_indices]))
         return predictions_HOO
-        '''
 
     def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
         """
@@ -171,24 +167,35 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
         self._Sigma, self._U = np.linalg.eigh(K)
+        self._U = self._U[:, self._Sigma > 1e-6]
+        self._Sigma = self._Sigma[self._Sigma > 1e-6]
 
-    def generate_W(self):
-        '''
-        Generates the matrix W, used for predictions
-        In kernel terms usually denoted as A:
-        Y = Knew W
-        '''
-        self._W = self._eigvects.dot(np.diag(self._filtered_values)).dot(
-                np.dot(self._eigvects.T, self._Y))
+    def train_model(self, l = 1.0):
+        """
+        Trains model and calculates mse
+        """
+        assert np.all(l) > 0  # ensure numerical stability
+        # apply the spectral filter on the eigenvalues
+        self._A = (self._U/(self._Sigma + l)).dot(np.dot(self._U.T, self._Y))
+        Yhat = (self._U*self._Sigma/(self._Sigma + l)).dot(np.dot(self._U.T, self._Y))
+        self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
 
+    def predict(self, Knew):
+        return np.dot(Knew, self._A)
 
-
+    def get_parameters(self):
+        """
+        Returns the estimated parameter vector/matrix
+        """
+        if hasattr(self, '_A'):
+            return self._A
+        else: raise AttributeError
 
 if __name__ == "__main__":
     import random as rd
 
-    test_linear = True
-    test_kernel = False
+    test_linear = False
+    test_kernel = True
 
     n = 1000  # number of instances
     p = 10  # number of features
@@ -196,7 +203,7 @@ if __name__ == "__main__":
 
     X = np.random.randn(n, p)
     w = np.random.rand(p, k)*5
-    y = np.dot(X, w) + np.random.randn(n, k)
+    y = np.dot(X, w) + np.random.randn(n, k)*100
 
     if test_linear:
         RLS = RegularizedLeastSquares(y, X)
@@ -219,25 +226,27 @@ if __name__ == "__main__":
         print RLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
         YhatF = RLS.predict(X)
 
+        # test if LOOCV works
+        RLS = RegularizedLeastSquares(y, X)
+        RLS.train_model(l = 5)
+        hoo_ther = RLS.predict_LOOCV(l = 0.001)[0]
+        RLS_ho = RegularizedLeastSquares(y[1:], X[1:])
+        RLS_ho.train_model(l = 0.001)
+        ho_exp = RLS_ho.predict(X[0])
+
+        print hoo_ther, ho_exp
+
+
     if test_kernel:
         K = X.dot(X.T)
         KRLS = KernelRegularizedLeastSquares(y, K)
         KRLS.train_model(1)
         YhatK = KRLS.predict(K)
         print KRLS.get_parameters()
+        '''
         HO_set = rd.sample(range(n), n/10)
         YHOO =  KRLS.predict_HOO(HO_set, 1)
         for i in range(n/10):
             print y[HO_set[i]], YHOO[i]
-
+        '''
         print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
-
-    # test if LOOCV works
-    RLS = RegularizedLeastSquares(y, X)
-    RLS.train_model(l = 5)
-    hoo_ther = RLS.predict_LOOCV(l = 0.001)[0]
-    RLS_ho = RegularizedLeastSquares(y[1:], X[1:])
-    RLS_ho.train_model(l = 0.001)
-    ho_exp = RLS_ho.predict(X[0])
-
-    print hoo_ther, ho_exp
