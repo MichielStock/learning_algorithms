@@ -71,57 +71,66 @@ class KroneckerRegularizedLeastSquaresGeneral:
         mse: return mse estimated for LOOCV
         """
         hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
+        n_u = len(hat_matrix_u)
         hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
+        n_v = len(hat_matrix_v)
         leverages_u = np.diag(hat_matrix_u)
-        residuals = self._Y - hat_matrix_u.dot(self._Y).dot(hat_matrix_v)
-        residual_HOO = (residuals.T/(1 - leverages_u)).T
-        mse_loocv = np.mean(residual_HOO**2)
+        partial_residues = (hat_matrix_u - np.diag(leverages_u)).dot(self._Y).\
+                dot(hat_matrix_v)
+        loov = (partial_residues.T/(1 - leverages_u)).T
+        mse_loocv = np.mean( ( self._Y - loov )**2 )
         if mse and not preds:
             return mse_loocv
         elif not mse and preds:
-            return self._Y - residual_HOO
+            return loov
         elif mse and preds:
-            return self._Y - residual_HOO, mse_loocv
+            return loov, mse_loocv
 
-    def predict_LOOCV_colums_2SRLS(self, (reg_1, reg_2), preds=True, mse=False):
+    def predict_LOOCV_columns_2SRLS(self, (reg_1, reg_2), preds=True, mse=False):
         """
-        Uses LOOCV for the colums to estimate the mse,
+        Uses LOOCV for the columns to estimate the mse,
         preds: return predictions
         mse: return mse estimated for LOOCV
         """
         hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
+        n_u = len(hat_matrix_u)
         hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
-        leverages = np.diag(hat_matrix_v)
-        Yhat = np.dot(hat_matrix_u, self._Y).dot(hat_matrix_v)
-        residual_HOO = (((self._Y-Yhat)/(1-leverages)))
-        mse_loocv = np.mean(residual_HOO**2)
+        n_v = len(hat_matrix_v)
+        leverages_v = np.diag(hat_matrix_v)
+        partial_residues = (hat_matrix_u).dot(self._Y).\
+                dot(hat_matrix_v - np.diag(leverages_v))
+        loov = (partial_residues/(1 - leverages_v))
+        mse_loocv = np.mean( ( self._Y - loov )**2 )
         if mse and not preds:
             return mse_loocv
         elif not mse and preds:
-            return self._Y - residual_HOO
+            return loov
         elif mse and preds:
-            return self._Y - residual_HOO, mse_loocv
+            return loov, mse_loocv
 
     def predict_LOOCV_both_2SRLS(self, (reg_1, reg_2), preds=True, mse=False):
         """
-        Uses LOOCV for the new objects to estimate the mse,
+        Uses LOOCV for new pairs to estimate the mse,
         preds: return predictions
         mse: return mse estimated for LOOCV
         """
         hat_matrix_u = (self._U*self._Sigma/(self._Sigma + reg_1)).dot(self._U.T)
-        hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
+        n_u = len(hat_matrix_u)
         leverages_u = np.diag(hat_matrix_u)
+        hat_matrix_v = (self._V*self._Delta/(self._Delta + reg_2)).dot(self._V.T)
+        n_v = len(hat_matrix_v)
         leverages_v = np.diag(hat_matrix_v)
-        Yhat = np.dot(hat_matrix_u, self._Y).dot(hat_matrix_v)
-        residual_HOO = (((self._Y-Yhat)/(1-leverages_v)))
-        residual_HOO = (residual_HOO.T/(1-leverages_u)).T
-        mse_loocv = np.mean(residual_HOO**2)
+        partial_residues = (hat_matrix_u - np.diag(leverages_u)).dot(self._Y).\
+                dot(hat_matrix_v - np.diag(leverages_v))
+        loov = (partial_residues/(1 - leverages_v))
+        loov = (loov.T/(1 - leverages_u)).T
+        mse_loocv = np.mean( ( self._Y - loov )**2 )
         if mse and not preds:
             return mse_loocv
         elif not mse and preds:
-            return self._Y - residual_HOO
+            return loov
         elif mse and preds:
-            return self._Y - residual_HOO, mse_loocv
+            return loov, mse_loocv
 
     def predict_LOOCV_rows_KRLS(self, reg, mse=False):
         """
@@ -157,7 +166,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         self.best_performance_LOOCV = 1e10
         for reg_1 in reg_1_grid:
             for reg_2 in reg_2_grid:
-                performance = self.predict_LOOCV_both_2SRLS((reg_1, reg_2),\
+                performance = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2),\
                         preds=False, mse=True)
                 print 'Regulariser pair (%s, %s) gives MSE of %s'\
                         %(reg_1, reg_2, performance)
@@ -212,10 +221,10 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
             Sigma, U = np.linalg.eigh(K_u)
             Delta, V = np.linalg.eigh(np.dot(C, K_v))
             self._Y = np.dot(Y, C)
-        self._U = U[:,Sigma>1e-12]  # eigenvectors first type of objects
-        self._V = V[:,Delta>1e-12]  # eigenvectors second type of objects
-        self._Sigma = Sigma[Sigma>1e-12]  # eigenvalues of first type of objects
-        self._Delta = Delta[Delta>1e-12]  # eigenvalues of second type of objects
+        self._U = U[:,Sigma>1e-15]  # eigenvectors first type of objects
+        self._V = V[:,Delta>1e-15]  # eigenvectors second type of objects
+        self._Sigma = Sigma[Sigma>1e-15]  # eigenvalues of first type of objects
+        self._Delta = Delta[Delta>1e-15]  # eigenvalues of second type of objects
         self.n_u, self.n_v = Y.shape
 
     def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
@@ -245,11 +254,11 @@ if __name__ == "__main__":
 
     # number of objects
     n_u = 400
-    n_v = 6
+    n_v = 60
 
     # dimension of objects
     p_u = 18
-    p_v = 10
+    p_v = 1000
 
     noise = 1
 
@@ -271,14 +280,16 @@ if __name__ == "__main__":
 
 
     # testing LOOCV
+    r1 = 1000
+    r2 = 0.001
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
-    KRLS.train_model((1,10))
-    row_HO_ther = KRLS.predict_LOOCV_both_2SRLS((1, 10))[0, 0]
+    KRLS.train_model((r1,r2))
+    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((r1, r2))[0, :]
 
-    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:][:, 1:], K_u[1:][:, 1:], K_v[1:][:, 1:])
-    KRLS_HO.train_model((10, 10), '2SRLS')
-    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v[0, 1:])
-    print 'must be the same:', Y[0,0], row_HO_ther, row_HO_exp
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:,1:], K_v)
+    KRLS_HO.train_model((r1, r2), '2SRLS')
+    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
+    print 'must be the same:', Y[0], row_HO_ther, row_HO_exp
 
 
     #KRLS.train_model(0.1, algorithm='KRLS')
@@ -296,9 +307,8 @@ if __name__ == "__main__":
                     mse=True)
 
 
-    print KRLS.best_performance_LOOCV
     print KRLS.best_regularisation
-    KRLS.train_model((1, 1))
+    KRLS.train_model(KRLS.best_regularisation)
     X_u_new = np.random.randn(n_u, p_u)
     Ynew = X_u_new.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
 
@@ -307,12 +317,14 @@ if __name__ == "__main__":
 
     print 'Testing for Kronecker ridge regression'
 
-    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-2, 10)],\
+    KRLS.LOOCV_model_selection_KRLS([10**i for i in range(-2, 5)],\
             verbose = True)
 
     print KRLS.best_performance_LOOCV
     print KRLS.best_regularisation
 
+    Yhat_new = KRLS.predict(X_u_new.dot(X_u.T), K_v)
+    print np.mean((Ynew-Yhat_new)**2)
 
 
 
