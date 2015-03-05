@@ -327,10 +327,68 @@ if __name__ == "__main__":
     print np.mean((Ynew-Yhat_new)**2)
 
 
+    #########################################
+    ##              Test LOOCV             ##
+    #########################################
+
+    # number of objects
+    n_u = 50
+    n_v = 60
+
+    # dimension of objects
+    p_u = 187
+    p_v = 100
+
+    noise = 1
+
+    X_u = np.random.randn(n_u, p_u)
+    K_u = np.dot(X_u, X_u.T)
+
+    X_v = np.random.randn(n_v, p_v)
+    K_v = np.dot(X_v, X_v.T)
+
+    W = np.random.randn(p_u, p_v)
+    Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
+
+    r1 = 250
+    r2 = 190
+
+    # rows
+    KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
+    KRLS.train_model((r1,r2))
+    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((r1, r2))[0, :]
+
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:,1:], K_v)
+    KRLS_HO.train_model((r1, r2), '2SRLS')
+    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
+    print 'rows: must be the same:', np.allclose(row_HO_ther, row_HO_exp)
+
+    # columns
+    KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
+    KRLS.train_model((r1,r2))
+    col_HO_ther = KRLS.predict_LOOCV_columns_2SRLS((r1, r2))[:, 0]
+
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[:,1:], K_u, K_v[1:][:,1:])
+    KRLS_HO.train_model((r1, r2), '2SRLS')
+    col_HO_exp = KRLS_HO.predict(K_u, K_v[0, 1:])
+    print 'rows: must be the same:', np.allclose(col_HO_ther, col_HO_exp)
+
+    # both
+    KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
+    KRLS.train_model((r1,r2))
+    both_HO_ther = KRLS.predict_LOOCV_both_2SRLS((r1, r2))[0, 0]
+
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:,1:], K_u[1:][:,1:], K_v[1:][:,1:])
+    KRLS_HO.train_model((r1, r2), '2SRLS')
+    both_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v[0, 1:])
+    print 'rows: must be the same:', np.allclose(both_HO_ther, both_HO_exp)
 
     """
-    from sklearn.metrics import roc_auc_score
+    #########################################
+    ##      Test conditional raning        ##
+    #########################################
 
+    from sklearn.metrics import roc_auc_score
 
     Y = Y > 0
 
