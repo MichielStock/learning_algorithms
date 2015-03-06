@@ -329,28 +329,10 @@ if __name__ == "__main__":
     W = np.random.randn(p_u, p_v)
 
     Y = X_u.dot(W.dot(X_v.T)) + np.random.randn(n_u, n_v)*noise
-    #Y = X_u.dot(np.random.randn(p_u, n_v)) + np.random.randn(n_u, n_v)*noise
-
-
 
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
     KRLS.train_model((0.1, 0.1))
 
-
-    # testing LOOCV
-    r1 = 1000
-    r2 = 0.001
-    KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
-    KRLS.train_model((r1,r2))
-    row_HO_ther = KRLS.predict_LOOCV_rows_2SRLS((r1, r2))[0, :]
-
-    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:], K_u[1:][:,1:], K_v)
-    KRLS_HO.train_model((r1, r2), '2SRLS')
-    row_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v)
-    print 'must be the same:', Y[0], row_HO_ther, row_HO_exp
-
-
-    #KRLS.train_model(0.1, algorithm='KRLS')
     Yhat = KRLS.predict(K_u, K_v)
 
     print np.mean((Y-Yhat)**2)
