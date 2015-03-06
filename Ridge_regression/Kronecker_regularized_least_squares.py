@@ -51,6 +51,10 @@ class KroneckerRegularizedLeastSquaresGeneral:
         self.model_norm = np.sum(np.dot(self._Sigma.reshape((-1, 1)),\
                 self._Delta.reshape((-1, 1)).T)*projected_labels_filtered**2)
         self.model_norm = self.model_norm**0.5
+        if return_Yhat:
+            Yhat = (self._U * self._Sigma).dot(projected_labels_filtered)\
+                    .dot((self._V*self._Delta).T)
+            return Yhat
 
     def get_parameters(self):
         """
@@ -132,7 +136,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         elif mse and preds:
             return loov, mse_loocv
 
-    def predict_LOOCV_rows_KRLS(self, reg, mse=False):
+    def predict_LOOCV_rows_KRLS(self, reg, preds=True, mse=False):
         """
         Uses a semi-efficient way to predict Y holdout for new rows using KRLS
         set mse to True to only get mse estimated by LOOCV
@@ -140,7 +144,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         K_u = (self._U*self._Sigma).dot(self._U.T)  # recover kernel matrix for u
         K_v = (self._V*self._Delta).dot(self._V.T)  # recover kernel matrix for v
         n_instances = len(K_u)
-        Y_loocv = np.zeros(self._Y.shape)
+        loov = np.zeros(self._Y.shape)
         for row_indice in range(n_instances):
             #  perform eigendecomposition of matrix with one instance removed
             Sigma_min_i, U_min_i = np.linalg.eigh(\
@@ -149,13 +153,38 @@ class KroneckerRegularizedLeastSquaresGeneral:
                     np.delete(self._Y, row_indice, 0), U_min_i, Sigma_min_i,\
                     self._V, self._Delta)
             temp_model.train_model(reg, algorithm='KRLS')
-            Y_loocv[row_indice] = temp_model.predict(\
+            loov[row_indice] = temp_model.predict(\
                     np.delete(K_u[row_indice], row_indice, 0),\
                     K_v)
-        if mse:
-            return np.mean((Y_loocv - self._Y)**2)
-        else:
-            return Y_loocv
+        mse_loocv = np.mean( (self._Y - loov)**2 )
+        if mse and not preds:
+            return mse_loocv
+        elif not mse and preds:
+            return loov
+        elif mse and preds:
+            return loov, mse_loocv
+
+    def predict_LOPO(self, regularisation, algorithm, preds=True, mse=False):
+        """
+        Predicts for one pair out for the given algorithm and regularisation
+        """
+        n_u, n_v = self._Y.shape
+        Yhat = self.train_model(regularisation, algorithm, return_Yhat=True)
+        mod_eigvals = self._filtered_values * \
+                np.dot(self._Sigma.reshape((-1,1)),self._Delta.reshape((1,-1)))
+        loov = np.zeros(Yhat.shape)
+        for u_ind in range(n_u):
+            for v_ind in range(n_v):
+                levage_uv = np.sum(np.kron(self._U[u_ind], self._V[v_ind])**2 *\
+                        mod_eigvals.reshape(-1))
+                loov[u_ind, v_ind] = Yhat[u_ind, v_ind]/(1 - levage_uv)
+        mse_loocv = np.mean( (self._Y - loov)**2 )
+        if mse and not preds:
+            return mse_loocv
+        elif not mse and preds:
+            return loov
+        elif mse and preds:
+            return loov, mse_loocv
 
     def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False):
         """
@@ -179,7 +208,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False):
         self.best_performance_LOOCV = 1e10
         for reg in reg_grid:
-            performance = self.predict_LOOCV_rows_KRLS(reg, mse=True)
+            performance = self.predict_LOOCV_rows_KRLS(reg, mse=True, preds=False)
             if performance < self.best_performance_LOOCV:
                 self.best_performance_LOOCV = performance
                 self.best_regularisation = reg
@@ -236,6 +265,10 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
         self.model_norm = np.sum(np.dot(self._Sigma.reshape((-1, 1)),\
                 self._Delta.reshape((-1, 1)).T)*projected_labels_filtered**2)
         self.model_norm = self.model_norm**0.5
+        if return_Yhat:
+            Yhat = (self._U * self._Sigma).dot(projected_labels_filtered)\
+                    .dot((self._V*self._Delta).T)
+            return Yhat
 
     def get_parameters(self):
         """
