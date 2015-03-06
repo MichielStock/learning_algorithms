@@ -1,30 +1,12 @@
 """
 Created on Wed Nov 2 2014
-Last update: Fri Feb 27 2015
-
+Last update: Wed Mar 4 2015
 @author: Michiel Stock
 michielfmstock@gmail.com
-
 Implementations of the RLS methods for one object
 """
 
 import numpy as np
-
-def svd_long_matrix(matrix, epsilon=1e-5):
-    """
-    Performs a singular value decomposition of a matrix with more
-    rows than columns
-    returns U, Esq, VE
-    """
-    XTX = np.dot(matrix.T, matrix)
-    Esq, V = np.linalg.eigh(XTX)
-    V = V[:, Esq>epsilon]
-    Esq = Esq[Esq>epsilon]
-    VE = V*(Esq**0.5)
-    del XTX  # remove to free space
-    U = X.dot(VE)/Esq
-    return U, Esq, VE
-
 
 class RegularizedLeastSquaresGeneral:
     """
@@ -33,78 +15,38 @@ class RegularizedLeastSquaresGeneral:
     Input: a vector or matrix Y containing the labels, a matrix X with
     the features
     """
-    def __init__(self, Y, X, Q = None, R = None):
+    def __init__(self, Y, U, Sigma, V):
         """
         Initialization of the instances, works with decomposition of X
-        Optionally, give Q (or its decomposition R such that Q = R^TR,
-        a positive semi-definite matrix to weight the observations
+        Sigma contains the SQUARED eigenvalues
         """
         self._Y = Y
-        if Q:
-            E, R = np.linalg.eigh(Q)
-            R = R[:, E>0]*(E[E>0]**0.5)
-        if R:
-            print 'WARNING: Overwriting features and labels for reweighting!'
-            self._R = R
-            Y = R.dot(Y)
-            X = R.dot(X)
-        self._N, self._P = X.shape
-        # perform decomposition of X
-        # eigvects are the left eigenvectors
-        # eigvals are the eigenvalues of XTX
-        # projection matrix is such that
-        #       X = eigvects * projection_matrix
-        self._eigvects, self._eigvals, self._projection_matrix = svd_long_matrix(X)
+        self._U = U
+        self._V = V
+        self._Sigma = Sigma
+        self._N, self._P = U.shape
 
-
-    def spectral_filter(self, regularisation, return_values = False):
+    def train_model(self, l = 1.0):
         """
-        Filters the eigenvalues using the following filter function:
-            f(sigma_i) = 1/(sigma_i + l_i)
-        with sigma_i the ith eigenvalue and l_i the elements from the regularisation
-        (can be fixed)
-        """
-        self._filtered_values = 1.0/(self._eigvals + regularisation)
-        if return_values:
-            return self._filtered_values
-
-    def train_model(self, l = 1.0, Q = None, R = None):
-        """
-        Calculate the weight vectors for a given regularization term
-        Can solve a more general function, with weights for
-        regularization:
-            J(w) = (y - Xw)^TQ(y - Xw) + w^TLw
-        with L = diag(l) and Q = R^TR (R is orthogonal)
-        (none-diagonal weightings not supported)
-        If a Q or R is given (to reweight the instances, the problem is solved
-        accordingly (Q is positive definite)
+        Trains model and calculates mse
         """
         assert np.all(l) > 0  # ensure numerical stability
         # apply the spectral filter on the eigenvalues
-        self.spectral_filter(l)
-        self._regularization = l  # last lambda(matrix) used for training
-        # estimate training error
-        Yhat = (self._eigvects*(self._filtered_values*self._eigvals)).dot(
-                np.dot(self._eigvects.T, self._Y))
-        UTY = self._eigvects.T.dot(self._Y)
-        self.model_norm = np.sum((UTY.T*self._filtered_values*self._eigvals)\
-                .dot(UTY))**0.5
+        print 'This is only for theoretical purposes'
+        Yhat = (self._U * self._Sigma*(self._Sigma + l)**-1).dot(self._U.T)\
+                .dot(self._Y)
+        self.model_norm = np.sum((self._Y.T.dot(self._U) / (self._Sigma + l))**2\
+                * self._Sigma)
+        self.model_norm = np.sqrt( self.model_norm )
         self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
-
-    def generate_W(self):
-        '''
-        Generates the matrix W, used for predictions
-        '''
-        self._W = self._projection_matrix.dot(np.diag(self._filtered_values)).dot(
-                np.dot(self._eigvects.T, self._Y))
 
     def get_parameters(self):
         """
         Returns the estimated parameter vector/matrix
         """
-        if not hasattr(self, '_W'):
-            self.generate_W()
-        return self._W
+        if hasattr(self, '_W'):
+            return self._W
+        else: raise AttributeError
 
     def set_labels(self, Y):
         """
@@ -112,71 +54,56 @@ class RegularizedLeastSquaresGeneral:
         """
         self._Y = Y
 
-    def predict(self, X_new):
-        """
-        Make new prediction, X_new can be features or a kernel matrix of
-        appropriate size
-        """
-        if not hasattr(self, '_W'):
-            self.generate_W()
-        return X_new.dot(self._W)
+    '''
+    # this part of the code does not yet work propperly
+    # future work!
 
-    def predict_HOO(self, val_inds, l = None):
+    def predict_HOO(self, val_inds, l = 1.0):
         """
         Makes a prediction for the instances indexed by val_inds, by using a
         model trained by all the remaining instances
-        Optinally give a new lamda parameter
+        Always provide a regularization parameter
         returns: estimated labels for tuning instances, parameters estimated
         on the train set
         """
-        if l:
-            self.spectral_filter(l)
-        else:
-            l = self._regularization
         number_inds = len(val_inds)
         mask_train_indices = np.ones(self._N, dtype=bool)
         mask_train_indices[val_inds] = False  # mask for training indices
-        eigenvectors_HO = self._eigvects[val_inds]
-        P = eigenvectors_HO*self._filtered_values*self._eigvals
-        submatrix = np.linalg.inv(
-                P.dot(eigenvectors_HO.T) - np.eye(number_inds) )
-        predictions_HOO = (P + eigenvectors_HO.dot(P.T).dot(submatrix).dot(P)).dot(np.dot(self._eigvects[
-                mask_train_indices].T, self._Y[mask_train_indices]))
+        eigenvectors_HO = self._U[val_inds]
+        eigvect_weighted_HO = eigenvectors_HO*self._Sigma/(self._Sigma + l)
+        eigenvectors_HI = self._U[mask_train_indices]
+        delearner = np.linalg.inv(eigvect_weighted_HO.dot(eigvect_weighted_HO.T) -\
+                np.eye(number_inds))
+        predictions_HOO = eigenvectors_HO.dot(\
+                np.diag(self._Sigma/(self._Sigma + l)) - \
+                np.dot(eigvect_weighted_HO.T, delearner.dot(eigvect_weighted_HO))).dot(\
+                np.dot(eigenvectors_HI.T, self._Y[mask_train_indices]))
         return predictions_HOO
+    '''
 
-    def predict_LOOCV(self, l = None, predictions = True, MSE = False):
+    def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
         """
         Makes a prediction for each instance by means of leave-one-out
         cross validation
         returns the estimated labels for each instance (if predictions is True)
         and/or estimated mean squared error (if MSE is True)
         """
-        if l:
-            self.train_model(l)
-        else:
-            l = self._regularization
-        leverages = ((self._eigvects*(self._eigvals*self._filtered_values
-                )*self._eigvects)).sum(1)
-        self._leverages = leverages
-        Yhat = (self._eigvects*(self._filtered_values*self._eigvals)).dot(
-                np.dot(self._eigvects.T, self._Y))
-        if predictions:
-            LOOCVpreds = self._Y - (self._Y - Yhat)/(
-                    1-np.reshape(leverages, (-1,1)))
+        Hat = (self._U*(self._Sigma/(self._Sigma + l))).dot(self._U.T)
+        leverages = np.diag(Hat)
+        upper_part = self._Y - Hat.dot(self._Y)
+        loo_residuals = (upper_part.T/(1 - leverages)).T
         if MSE:
-            MSE = np.mean( ((self._Y - Yhat)/(
-                    1-np.reshape(leverages, (-1,1))))**2)
+            MSE = np.mean((loo_residuals)**2)
         if predictions and MSE:
-            return LOOCVpreds, MSE
+            return self._Y - loo_residuals, MSE
         if predictions and not MSE:
-            return LOOCVpreds
+            return self._Y - loo_residuals
         if not predictions and MSE:
             return MSE
         else:
             print 'You have to specify to calculate something!'
 
-
-    def LOOCV_model_selection(self, l_grid):
+    def LOOCV_model_selection(self, l_grid, verbose=False):
         """
         Does model model selection based on LOOCV estimated MSE for all the
         possible regularization parameters from l_grid
@@ -191,20 +118,16 @@ class RegularizedLeastSquaresGeneral:
             if MSE_l < best_MSE:
                 best_lambda = l
                 best_MSE = MSE_l
-        print 'Best lambda = %s (MSE = %s)' %(best_lambda, best_MSE)
+        if verbose: print 'Best lambda = %s (MSE = %s)' %(best_lambda, best_MSE)
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
-    def __str__(self):
-        print 'General RLS model'
-        print 'Dimensionality of output is %s' %self._Y.shape[1]
-        if hasattr(self, '_filtered_values'):
-            print 'MSE train is %s' %self.mse_train
-            print 'MSE LOOCV is %s' %self.predict_LOOCV(predictions = False,
-                                                        MSE = True)
-            print 'Regularization is %s' %np.mean(self._regularization)
-            print 'Model norm is %s' %self.model_norm
-        return ''
+    def get_norm(self):
+        """
+        Returns the norm of the trained model
+        """
+        return self.model_norm
+
 
 class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     """
@@ -213,6 +136,34 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     Input: a vector or matrix Y containing the labels, a matrix X with
     the features
     """
+    def __init__(self, Y, X):
+        """
+        Initialization of the instances, works with decomposition of X
+        Sigma contains the SQUARED eigenvalues
+        """
+        U, Sigma_sqrt, VT = np.linalg.svd(X, full_matrices=False)
+        self._X = X
+        self._Y = Y
+        self._U = U
+        self._V = VT.T  # use transpose to be algebraic correct
+        self._Sigma = Sigma_sqrt**2  # need square for implementation
+        self._N, self._P = U.shape
+
+    def train_model(self, l = 1.0):
+        """
+        Trains model and calculates mse
+        """
+        assert np.all(l) > 0  # ensure numerical stability
+        # apply the spectral filter on the eigenvalues
+        self._W = (self._V * (self._Sigma + l)**-1).dot(self._V.T).dot(np.dot(self._X.T, self._Y))
+        Yhat = self._X.dot(self._W)
+        self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
+        self.model_norm = np.sum((self._Y.T.dot(self._U) / (self._Sigma + l))**2\
+                * self._Sigma)
+        self.model_norm = np.sqrt( self.model_norm )
+
+    def predict(self, Xnew):
+        return np.dot(Xnew, self._W)
 
 
 class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
@@ -231,25 +182,35 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         """
         self._Y = Y
         self._N = Y.shape[0]
-        assert self._N == K.shape[0] and self._N == K.shape[0]
+        assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
-        eigvals, eigvects = np.linalg.eigh(K)
-        # remove eigenvalues smaller than epsilon
-        epsilon = 1e-10
-        self._eigvals = eigvals[eigvals>epsilon]
-        self._eigvects = eigvects[:,eigvals>epsilon]
+        self._Sigma, self._U = np.linalg.eigh(K)
+        self._U = self._U[:, self._Sigma > 1e-8]
+        self._Sigma = self._Sigma[self._Sigma > 1e-8]
 
-    def generate_W(self):
-        '''
-        Generates the matrix W, used for predictions
-        In kernel terms usually denoted as A:
-        Y = Knew W
-        '''
-        self._W = self._eigvects.dot(np.diag(self._filtered_values)).dot(
-                np.dot(self._eigvects.T, self._Y))
+    def train_model(self, l = 1.0):
+        """
+        Trains model and calculates mse
+        """
+        assert np.all(l) > 0  # ensure numerical stability
+        # apply the spectral filter on the eigenvalues
+        self._A = (self._U/(self._Sigma + l)).dot(np.dot(self._U.T, self._Y))
+        Yhat = (self._U*self._Sigma/(self._Sigma + l)).dot(np.dot(self._U.T, self._Y))
+        self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
+        self.model_norm = np.sum((self._Y.T.dot(self._U) / (self._Sigma + l))**2\
+                * self._Sigma)
+        self.model_norm = np.sqrt( self.model_norm )
 
+    def predict(self, Knew):
+        return np.dot(Knew, self._A)
 
-
+    def get_parameters(self):
+        """
+        Returns the estimated parameter vector/matrix
+        """
+        if hasattr(self, '_A'):
+            return self._A
+        else: raise AttributeError
 
 if __name__ == "__main__":
     import random as rd
@@ -263,7 +224,7 @@ if __name__ == "__main__":
 
     X = np.random.randn(n, p)
     w = np.random.rand(p, k)*5
-    y = np.dot(X, w) + np.random.randn(n, k)/2
+    y = np.dot(X, w) + np.random.randn(n, k)
 
     if test_linear:
         RLS = RegularizedLeastSquares(y, X)
@@ -271,12 +232,13 @@ if __name__ == "__main__":
         for i in range(p):
             print w[i], RLS.get_parameters()[i]
 
+        """
         HO_set = rd.sample(range(n), n/10)
         Yhat = RLS.predict_HOO(HO_set, 0.01)
         print Yhat.shape
-
         for i in range(n/10):
             print Yhat[i], y[HO_set[i]]
+        """
 
         CVpreds = RLS.predict_LOOCV()
         for i in range(n):
@@ -285,15 +247,39 @@ if __name__ == "__main__":
         print RLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
         YhatF = RLS.predict(X)
 
+    #########################################
+    ##              Test LOOCV             ##
+    #########################################
+
+        RLS = RegularizedLeastSquares(y, X)
+        RLS.train_model(l = 5)
+        hoo_ther = RLS.predict_LOOCV(l = 0.001)[0]
+        RLS_ho = RegularizedLeastSquares(y[1:], X[1:])
+        RLS_ho.train_model(l = 0.001)
+        ho_exp = RLS_ho.predict(X[0])
+
+        print 'Should be the same:',np.allclose(hoo_ther, ho_exp)
+
+
     if test_kernel:
         K = X.dot(X.T)
         KRLS = KernelRegularizedLeastSquares(y, K)
         KRLS.train_model(1)
         YhatK = KRLS.predict(K)
         print KRLS.get_parameters()
-        HO_set = rd.sample(range(n), n/10)
-        YHOO =  KRLS.predict_HOO(HO_set, 1)
-        for i in range(n/10):
-            print y[HO_set[i]], YHOO[i]
+        indices = range(n)
+        rd.shuffle(indices)
+        '''
+        HO_set = indices[:n/10]
+        HI_set = indices[n/10:]
+        YHOO =  KRLS.predict_HOO(HO_set, 10)
 
-        print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
+        KRLS_HO = KernelRegularizedLeastSquares(y[HI_set],\
+                X[HI_set].dot(X[HI_set].T))
+        KRLS_HO.train_model(10)
+        YHOO_exp = KRLS_HO.predict(X[HO_set].dot(X[HI_set].T))
+        for i in range(n/10):
+            print y[HO_set[i]], YHOO[i], YHOO_exp[i]
+        '''
+        print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)],\
+                verbose=True)
