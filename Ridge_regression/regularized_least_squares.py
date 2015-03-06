@@ -1,6 +1,7 @@
 """
 Created on Wed Nov 2 2014
-Last update: Wed Mar 4 2015
+Last update: Fri Mar 6 2015
+
 @author: Michiel Stock
 michielfmstock@gmail.com
 Implementations of the RLS methods for one object
