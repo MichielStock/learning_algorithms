@@ -189,8 +189,8 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False,\
             method='rows'):
         """
-        Seaches for the combination of parameters that give the best generalization
-        error for a given grid.
+        Seaches for the combination of parameters for two-step RLS that give
+        the best generalization error for given grids.
         Provided stategies for cross validation:
             - pairs: leave one pair out
             - rows: leave one row out
@@ -203,13 +203,13 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 if method ==  'rows':
                     performance = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2),\
                             preds=False, mse=True)
-                if method ==  'columns':
+                elif method ==  'columns':
                     performance = self.predict_LOOCV_columns_2SRLS((reg_1, reg_2),\
                             preds=False, mse=True)
-                if method ==  'both':
+                elif method ==  'both':
                     performance = self.predict_LOOCV_both_2SRLS((reg_1, reg_2),\
                             preds=False, mse=True)
-                if method ==  'pairs':
+                elif method ==  'pairs':
                     performance = self.predict_LOPO((reg_1, reg_2),\
                             preds=False, mse=True, algorithm='2SRLS')
                 print 'Regulariser pair (%s, %s) gives MSE of %s'\
@@ -219,11 +219,21 @@ class KroneckerRegularizedLeastSquaresGeneral:
                     self.best_regularisation = (reg_1, reg_2)
         self.train_model(self.best_regularisation, algorithm='2SRLS')
 
-
-    def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False):
+    def LOOCV_model_selection_KRLS(self, reg_grid, verbose=False, method='rows'):
+        """
+        Seaches for the hyperparameter for Kronecker RLS that gives
+        the best generalization error for a given grid.
+        Provided stategies for cross validation:
+            - pairs: leave one pair out
+            - rows: leave one row out
+        """
         self.best_performance_LOOCV = 1e10
         for reg in reg_grid:
-            performance = self.predict_LOOCV_rows_KRLS(reg, mse=True, preds=False)
+            if method == 'rows':
+                performance = self.predict_LOOCV_rows_KRLS(reg, mse=True, preds=False)
+            elif method == 'pairs':
+                performance = self.predict_LOPO(reg,\
+                            preds=False, mse=True, algorithm='KRLS')
             if performance < self.best_performance_LOOCV:
                 self.best_performance_LOOCV = performance
                 self.best_regularisation = reg
