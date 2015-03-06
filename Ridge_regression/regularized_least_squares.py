@@ -54,6 +54,9 @@ class RegularizedLeastSquaresGeneral:
         """
         self._Y = Y
 
+    '''
+    # this part of the code does not yet work propperly
+    # future work!
 
     def predict_HOO(self, val_inds, l = 1.0):
         """
@@ -76,6 +79,7 @@ class RegularizedLeastSquaresGeneral:
                 np.dot(eigvect_weighted_HO.T, delearner.dot(eigvect_weighted_HO))).dot(\
                 np.dot(eigenvectors_HI.T, self._Y[mask_train_indices]))
         return predictions_HOO
+    '''
 
     def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
         """
@@ -99,7 +103,7 @@ class RegularizedLeastSquaresGeneral:
         else:
             print 'You have to specify to calculate something!'
 
-    def LOOCV_model_selection(self, l_grid):
+    def LOOCV_model_selection(self, l_grid, verbose=False):
         """
         Does model model selection based on LOOCV estimated MSE for all the
         possible regularization parameters from l_grid
@@ -114,7 +118,7 @@ class RegularizedLeastSquaresGeneral:
             if MSE_l < best_MSE:
                 best_lambda = l
                 best_MSE = MSE_l
-        print 'Best lambda = %s (MSE = %s)' %(best_lambda, best_MSE)
+        if verbose: print 'Best lambda = %s (MSE = %s)' %(best_lambda, best_MSE)
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
@@ -123,6 +127,7 @@ class RegularizedLeastSquaresGeneral:
         Returns the norm of the trained model
         """
         return self.model_norm
+
 
 class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     """
@@ -264,6 +269,7 @@ if __name__ == "__main__":
         print KRLS.get_parameters()
         indices = range(n)
         rd.shuffle(indices)
+        '''
         HO_set = indices[:n/10]
         HI_set = indices[n/10:]
         YHOO =  KRLS.predict_HOO(HO_set, 10)
@@ -274,5 +280,6 @@ if __name__ == "__main__":
         YHOO_exp = KRLS_HO.predict(X[HO_set].dot(X[HI_set].T))
         for i in range(n/10):
             print y[HO_set[i]], YHOO[i], YHOO_exp[i]
-
-        print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
+        '''
+        print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)],\
+                verbose=True)
