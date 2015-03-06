@@ -35,6 +35,9 @@ class RegularizedLeastSquaresGeneral:
         print 'This is only for theoretical purposes'
         Yhat = (self._U * self._Sigma*(self._Sigma + l)**-1).dot(self._U.T)\
                 .dot(self._Y)
+        self.model_norm = np.sum((self._Y.T.dot(self._U) / (self._Sigma + l))**2\
+                * self._Sigma)
+        self.model_norm = np.sqrt( self.model_norm )
         self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
 
     def get_parameters(self):
@@ -115,6 +118,12 @@ class RegularizedLeastSquaresGeneral:
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
+    def get_norm(self):
+        """
+        Returns the norm of the trained model
+        """
+        return self.model_norm
+
 class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     """
     Implementation of the standard regularized least squares,
@@ -144,6 +153,9 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         self._W = (self._V * (self._Sigma + l)**-1).dot(self._V.T).dot(np.dot(self._X.T, self._Y))
         Yhat = self._X.dot(self._W)
         self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
+        self.model_norm = np.sum((self._Y.T.dot(self._U) / (self._Sigma + l))**2\
+                * self._Sigma)
+        self.model_norm = np.sqrt( self.model_norm )
 
     def predict(self, Xnew):
         return np.dot(Xnew, self._W)
@@ -180,6 +192,9 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         self._A = (self._U/(self._Sigma + l)).dot(np.dot(self._U.T, self._Y))
         Yhat = (self._U*self._Sigma/(self._Sigma + l)).dot(np.dot(self._U.T, self._Y))
         self.mse_train = np.mean((Yhat-self._Y)**2)  # Frobenius
+        self.model_norm = np.sum((self._Y.T.dot(self._U) / (self._Sigma + l))**2\
+                * self._Sigma)
+        self.model_norm = np.sqrt( self.model_norm )
 
     def predict(self, Knew):
         return np.dot(Knew, self._A)
@@ -227,7 +242,10 @@ if __name__ == "__main__":
         print RLS.LOOCV_model_selection([10**i for i in range(-5, 5)])
         YhatF = RLS.predict(X)
 
-        # test if LOOCV works
+    #########################################
+    ##              Test LOOCV             ##
+    #########################################
+
         RLS = RegularizedLeastSquares(y, X)
         RLS.train_model(l = 5)
         hoo_ther = RLS.predict_LOOCV(l = 0.001)[0]
@@ -235,7 +253,7 @@ if __name__ == "__main__":
         RLS_ho.train_model(l = 0.001)
         ho_exp = RLS_ho.predict(X[0])
 
-        print 'Should be the same:',hoo_ther, ho_exp
+        print 'Should be the same:',np.allclose(hoo_ther, ho_exp)
 
 
     if test_kernel:
