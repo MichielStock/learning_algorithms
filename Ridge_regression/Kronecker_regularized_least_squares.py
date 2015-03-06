@@ -186,17 +186,32 @@ class KroneckerRegularizedLeastSquaresGeneral:
         elif mse and preds:
             return loov, mse_loocv
 
-    def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False):
+    def LOOCV_model_selection_2SRLS(self, reg_1_grid, reg_2_grid, verbose=False,\
+            method='rows'):
         """
-        Seaches for the combination of paramters that give the best generalization
-        error where both items are new
+        Seaches for the combination of parameters that give the best generalization
+        error for a given grid.
+        Provided stategies for cross validation:
+            - pairs: leave one pair out
+            - rows: leave one row out
+            - columns: leave one column out
+            - both: leave one colums and row out
         """
-
         self.best_performance_LOOCV = 1e10
         for reg_1 in reg_1_grid:
             for reg_2 in reg_2_grid:
-                performance = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2),\
-                        preds=False, mse=True)
+                if method ==  'rows':
+                    performance = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2),\
+                            preds=False, mse=True)
+                if method ==  'columns':
+                    performance = self.predict_LOOCV_columns_2SRLS((reg_1, reg_2),\
+                            preds=False, mse=True)
+                if method ==  'both':
+                    performance = self.predict_LOOCV_both_2SRLS((reg_1, reg_2),\
+                            preds=False, mse=True)
+                if method ==  'pairs':
+                    performance = self.predict_LOPO((reg_1, reg_2),\
+                            preds=False, mse=True, algorithm='2SRLS')
                 print 'Regulariser pair (%s, %s) gives MSE of %s'\
                         %(reg_1, reg_2, performance)
                 if performance < self.best_performance_LOOCV:
