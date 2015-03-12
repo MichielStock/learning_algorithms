@@ -173,13 +173,12 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Yhat = self.train_model(regularisation, algorithm, return_Yhat=True)
         mod_eigvals = self._filtered_values * \
                 np.dot(self._Sigma.reshape((-1,1)),self._Delta.reshape((1,-1)))
-        loov = np.zeros(Yhat.shape)
-        for u_ind in range(n_u):
-            for v_ind in range(n_v):
-                levage_uv = np.sum(np.kron(self._U[u_ind], self._V[v_ind])**2 *\
-                        mod_eigvals.reshape(-1))
-                loov[u_ind, v_ind] = Yhat[u_ind, v_ind]/(1 - levage_uv)
-        mse_loocv = np.mean( (self._Y - loov)**2 )
+        leverages = (self._U.T**2).dot(mod_eigvals).dot(self._V**2)
+        looe = (self._Y - Yhat)/(1 - leverages)
+        if mse:
+            mse_loocv = np.mean( (looe)**2 )
+        if preds:
+            loov = self._Y - looe
         if mse and not preds:
             return mse_loocv
         elif not mse and preds:
