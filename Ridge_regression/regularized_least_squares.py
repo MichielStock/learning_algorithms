@@ -119,7 +119,9 @@ class RegularizedLeastSquaresGeneral:
             if MSE_l < best_MSE:
                 best_lambda = l
                 best_MSE = MSE_l
-        if verbose: print 'Best lambda = %s (MSE = %s)' %(best_lambda, best_MSE)
+            if verbose: print 'Lambda = %s (MSE = %s)' %(l, MSE_l)
+        if verbose: print 'Best lambda of %s gives a mse of %s'\
+                %(best_lambda, best_MSE)
         self.train_model(best_lambda)
         return best_lambda, best_MSE
 
@@ -284,3 +286,20 @@ if __name__ == "__main__":
         '''
         print KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)],\
                 verbose=True)
+
+    # test on Synthetic data
+    from sklearn.datasets import make_regression
+    from sklearn.metrics import mean_squared_error
+    from sklearn.ensemble import RandomForestRegressor
+
+    X, Y, coef = make_regression(n_samples=200, n_features=50, n_informative=10, n_targets=10, bias=0.0, effective_rank=20, tail_strength=0.5, noise=1, shuffle=True, coef=True)
+
+    RLS = RegularizedLeastSquares(Y[:100], X[:100])
+    RLS.LOOCV_model_selection([10**i for i in range(-5, 5)],verbose=True)
+    Yhat_rls = RLS.predict(X[100:])
+    mse_rls = mean_squared_error(Y[100:], Yhat_rls)
+
+    RFR = RandomForestRegressor(n_estimators=50)
+    RFR.fit(X[:100], Y[:100])
+    Yhat_rls = RFR.predict(X[100:])
+    mse_rfr = mean_squared_error(Y[100:], Yhat_rls)

@@ -167,6 +167,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def predict_LOPO(self, regularisation, algorithm, preds=True, mse=False):
         """
         Predicts for one pair out for the given algorithm and regularisation
+        => could be made more efficient
         """
         n_u, n_v = self._Y.shape
         Yhat = self.train_model(regularisation, algorithm, return_Yhat=True)
@@ -212,7 +213,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
                 elif method ==  'pairs':
                     performance = self.predict_LOPO((reg_1, reg_2),\
                             preds=False, mse=True, algorithm='2SRLS')
-                print 'Regulariser pair (%s, %s) gives MSE of %s'\
+                if verbose: print 'Regulariser pair (%s, %s) gives MSE of %s'\
                         %(reg_1, reg_2, performance)
                 if performance < self.best_performance_LOOCV:
                     self.best_performance_LOOCV = performance
@@ -277,8 +278,8 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
             self._Y = np.dot(Y, C)
         self._U = U[:,Sigma>1e-15]  # eigenvectors first type of objects
         self._V = V[:,Delta>1e-15]  # eigenvectors second type of objects
-        self._Sigma = Sigma[Sigma>1e-15]  # eigenvalues of first type of objects
-        self._Delta = Delta[Delta>1e-15]  # eigenvalues of second type of objects
+        self._Sigma = Sigma[Sigma > 1e-15]  # eigenvalues of first type of objects
+        self._Delta = Delta[Delta > 1e-15]  # eigenvalues of second type of objects
         self.n_u, self.n_v = Y.shape
 
     def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
@@ -311,8 +312,8 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 400
-    n_v = 60
+    n_u = 100
+    n_v = 100
 
     # dimension of objects
     p_u = 18
@@ -411,7 +412,7 @@ if __name__ == "__main__":
     KRLS_HO = KroneckerRegularizedLeastSquares(Y[:,1:], K_u, K_v[1:][:,1:])
     KRLS_HO.train_model((r1, r2), '2SRLS')
     col_HO_exp = KRLS_HO.predict(K_u, K_v[0, 1:])
-    print 'rows: must be the same:', np.allclose(col_HO_ther, col_HO_exp)
+    print 'columns: must be the same:', np.allclose(col_HO_ther, col_HO_exp)
 
     # both
     KRLS = KroneckerRegularizedLeastSquares(Y, K_u, K_v)
@@ -421,7 +422,7 @@ if __name__ == "__main__":
     KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:,1:], K_u[1:][:,1:], K_v[1:][:,1:])
     KRLS_HO.train_model((r1, r2), '2SRLS')
     both_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v[0, 1:])
-    print 'rows: must be the same:', np.allclose(both_HO_ther, both_HO_exp)
+    print 'both: must be the same:', np.allclose(both_HO_ther, both_HO_exp)
 
     """
     #########################################
