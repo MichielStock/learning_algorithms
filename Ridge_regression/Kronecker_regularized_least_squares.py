@@ -173,7 +173,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Yhat = self.train_model(regularisation, algorithm, return_Yhat=True)
         mod_eigvals = self._filtered_values * \
                 np.dot(self._Sigma.reshape((-1,1)),self._Delta.reshape((1,-1)))
-        leverages = (self._U.T**2).dot(mod_eigvals).dot(self._V**2)
+        leverages = (self._U**2).dot(mod_eigvals).dot(self._V.T**2)
         looe = (self._Y - Yhat)/(1 - leverages)
         if mse:
             mse_loocv = np.mean( (looe)**2 )
@@ -340,11 +340,11 @@ if __name__ == "__main__":
     print 'Testing for two-step RLS'
 
     KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
-        [10**i for i in range(-5, 5)], verbose = True)
+        [10**i for i in range(-5, 5)], verbose = True, method='both')
 
     print 'Estimated row CV error: %s'\
-            %KRLS.predict_LOOCV_rows_2SRLS(KRLS.best_regularisation, preds=False,\
-                    mse=True)
+            %KRLS.best_performance_LOOCV
+
 
 
     print KRLS.best_regularisation
