@@ -173,7 +173,7 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Yhat = self.train_model(regularisation, algorithm, return_Yhat=True)
         mod_eigvals = self._filtered_values * \
                 np.dot(self._Sigma.reshape((-1,1)),self._Delta.reshape((1,-1)))
-        leverages = (self._U**2).dot(mod_eigvals).dot(self._V.T**2)
+        leverages = np.dot((self._U)**2, mod_eigvals).dot((self._V.T)**2)
         looe = (self._Y - Yhat)/(1 - leverages)
         if mse:
             mse_loocv = np.mean( (looe)**2 )
@@ -311,12 +311,12 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 100
-    n_v = 100
+    n_u = 1000
+    n_v = 1000
 
     # dimension of objects
     p_u = 18
-    p_v = 1000
+    p_v = 100
 
     noise = 1
 
@@ -337,14 +337,15 @@ if __name__ == "__main__":
 
     print np.mean((Y-Yhat)**2)
 
+    print 'New rows'
+
     print 'Testing for two-step RLS'
 
     KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
-        [10**i for i in range(-5, 5)], verbose = True, method='both')
+        [10**i for i in range(-5, 5)], verbose = True, method='rows')
 
     print 'Estimated row CV error: %s'\
             %KRLS.best_performance_LOOCV
-
 
 
     print KRLS.best_regularisation
@@ -366,6 +367,20 @@ if __name__ == "__main__":
     Yhat_new = KRLS.predict(X_u_new.dot(X_u.T), K_v)
     print np.mean((Ynew-Yhat_new)**2)
 
+    print 'New both'
+
+    print 'Testing for two-step RLS'
+
+    X_v_new = np.random.randn(n_v, p_v)
+    Ynew = X_u_new.dot(W.dot(X_v_new.T)) + np.random.randn(n_u, n_v)*noise
+
+    KRLS.LOOCV_model_selection_2SRLS([10**i for i in range(-10, 10)],\
+        [10**i for i in range(-5, 5)], verbose = True, method='both')
+
+    print KRLS.best_performance_LOOCV, KRLS.best_regularisation
+
+    Ypred = KRLS.predict(X_u_new.dot(X_u.T), X_v_new.dot(X_v.T))
+    print np.mean((Ynew-Ypred)**2)
 
     #########################################
     ##              Test LOOCV             ##
