@@ -1,6 +1,6 @@
 """
 Created on Fri Mar 20 2015
-Last update: Fri Mar 20 2015
+Last update: Sat Mar 21 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -17,7 +17,7 @@ def floatX(x):
     return np.asarray(x, dtype=theano.config.floatX)
 
 def init_weights(shape):
-    return theano.shared(floatX(np.random.rand(shape)))
+    return theano.shared(floatX(np.ones((shape))))
 
 def univar_normal(x, mu=np.random.randn(), sigma=1.0):
     """
@@ -32,65 +32,74 @@ def univar_normal(x, mu=np.random.randn(), sigma=1.0):
 # define the variables, and associated distributions
 
 # two dimensional problem
-X1 = T.scalar()
-X2 = T.scalar()
-
+X1 = T.TensorType(dtype='float64', broadcastable=(False, True))('X1')
+X2 = T.TensorType(dtype='float64', broadcastable=(False, True))('X2')
 # assume three clusters
 
-parameters_pdf = []  # dump all the parameters of the pdfs
-prob_dens_functions = []  #save the pdf
+n_clusters = 10
 
-for clrnr in range(3):
-    pdfs_group = []
-    for X in [X1, X2]:
-        pdf, params = univar_normal(X)
-        pdfs_group.append(pdf)
-        parameters_pdf += params
-    prob_dens_functions.append(pdfs_group)
+mu_X1 = theano.shared(np.random.randn(1, n_clusters), broadcastable=(True,False))
+sigma_X1 = theano.shared(np.ones((1, n_clusters)) * 10, broadcastable=(True,False))
+
+mu_X2 = theano.shared(np.random.randn(1, n_clusters), broadcastable=(True,False))
+sigma_X2 = theano.shared(np.ones((1, n_clusters)) * 10, broadcastable=(True,False))
+
+
 
 # make network, three weights
 
-sum_weights = init_weights(3)
+sum_weights = init_weights(n_clusters)
 
-top_sum_value = T.sum(sum_weights * map(T.prod, prob_dens_functions))
-top_sum_value_MAP = T.max(sum_weights * map(T.prod, prob_dens_functions))
-normalization = T.sum(sum_weights)
+pdf_values_X1 = T.exp(-(X1 - mu_X1)**2/sigma_X1**2)/T.sqrt(2*np.pi*sigma_X1**2)
+pdf_values_X2 = T.exp(-(X2 - mu_X2)**2/sigma_X2**2)/T.sqrt(2*np.pi*sigma_X2**2)
 
-log_MAP = T.log(top_sum_value_MAP/normalization)
+top_sum_value = (pdf_values_X1 * pdf_values_X2 * T.abs_(sum_weights)).sum(1)
+top_sum_value_MAP = (pdf_values_X1 * pdf_values_X2 * T.abs_(sum_weights)).max(1)
+normalization = T.sum(T.abs_(sum_weights))
 
-gradient_weights  = T.grad(log_MAP, sum_weights)
-gradient_params = T.grad(log_MAP, parameters_pdf)
+log_MAP = T.sum(T.log(top_sum_value/normalization))
 
-train = theano.function([X1, X2], log_MAP, updates = [\
-            (sum_weights, sum_weights + 1 * gradient_weights)] +
-            [(p, p + 1 * g) for (p, g) in zip(parameters_pdf, gradient_params)])
+params = [sum_weights, mu_X1, sigma_X1, mu_X2, sigma_X2]
+learning_rate = 0.001
+
+complexity_penalty = 0.00001 * T.sum(map(lambda x: T.mean(T.abs_(x)), params)) # L1
+
+gradient_params  = T.grad(log_MAP + complexity_penalty, params)
+
+
+train = theano.function([X1, X2], log_MAP, updates =\
+            [(p, p + learning_rate * g) for p, g in zip(params, gradient_params)])
 
 # generate a random dataset
 
-from sklearn.datasets import make_blobs
+from sklearn.datasets import make_blobs, make_moons
 from matplotlib.mlab import griddata
 import matplotlib.pyplot as plt
 
-
-X, Y = make_blobs(centers=3, cluster_std=0.7)
+X, Y = make_blobs(n_samples=100, centers=7, cluster_std=1)
+#X, y = make_moons(n_samples=1000, noise = 10)
 
 for iteration in range(5000):
-    for x1, x2 in X:
-        train(x1, x2)
+    print train(X[:,0].reshape((-1,1)), X[:,1].reshape((-1,1)))
 
-map_value = theano.function((X1, X2), log_MAP)
+map_value = theano.function((X1, X2), - T.log(top_sum_value/normalization))
 
-X1_vals = np.arange(X[:,0].min(), X[:,0].max(), 0.1)
-X2_vals = np.arange(X[:,1].min(), X[:,1].max(), 0.1)
-MAP_loglikelihood = np.zeros((len(X1_vals), len(X2_vals)))
+x1 = np.arange(X[:,0].min(), X[:,0].max(), 0.1)
+x2 = np.arange(X[:,1].min(), X[:,1].max(), 0.1)
+X1_vals, X2_vals = np.meshgrid(x1, x2)
 
-for i in range(len(X1_vals)):
-    for j in range(len(X2_vals)):
-        MAP_loglikelihood[i,j] = map_value(X1_vals[i], X2_vals[i])
+MAP_loglikelihood = np.zeros(X1_vals.shape)
 
+for j in range(X1_vals.shape[1]):
+    temp = map_value(X1_vals[:,j].reshape((-1,1)), X2_vals[:,j].reshape((-1,1)))
+    for i in range(X2_vals.shape[0]):
+        MAP_loglikelihood[i,j] = temp[i]
 
-fig, ax = plt.subplots(nrows=1, ncols=2)
-ax[0].scatter(X[:,0], X[:,1])
-ax[1].imshow(MAP_loglikelihood)
+CS = plt.contourf(X1_vals, X2_vals, MAP_loglikelihood)
+plt.clabel(CS, inline=1, fontsize=10, cmap='hot')
+plt.colorbar()
+plt.scatter(X[:,0], X[:,1])
+plt.show()
 
-fig.show()
+for par in params:
+    print par.get_value()
