@@ -64,12 +64,12 @@ class RegularizedLeastSquaresGeneral:
         on the train set
         """
         train_inds = filter(lambda ind: ind not in val_inds, range(self._N))
-        reg_inverted_eigvals = 1./(self._Sigma + l)
+        reg_eigvals = (self._Sigma + l)
         U_train = self._U[train_inds,:]
         U_val = self._U[val_inds,:]
-        B = (U_train * reg_inverted_eigvals).dot(U_val.T)
-        inverted_val = np.linalg.inv((U_val * reg_inverted_eigvals).dot(U_val.T))
-        hat_hoo = (U_train * reg_inverted_eigvals).dot(U_train.T) -\
+        B = (U_train / reg_eigvals).dot(U_val.T)
+        inverted_val = np.linalg.inv((U_val / reg_eigvals).dot(U_val.T))
+        hat_hoo = (U_train / reg_eigvals).dot(U_train.T) -\
                 B.dot(inverted_val).dot(B.T)
         loo_values = (U_val * self._Sigma).dot(U_train.T).dot(hat_hoo)\
                 .dot(self._Y[train_inds])
@@ -304,4 +304,4 @@ if __name__ == "__main__":
     Yhat_rls = RFR.predict(X[100:])
     mse_rfr = mean_squared_error(Y[100:], Yhat_rls)
 
-    preds_hoo = RLS.predict_HOO(range(10), 10)
+    print 'LOOCV and HOO are the same:', np.allclose(RLS.predict_LOOCV()[0], RLS.predict_HOO([0]))
