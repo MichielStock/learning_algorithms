@@ -55,11 +55,7 @@ class RegularizedLeastSquaresGeneral:
         """
         self._Y = Y
 
-    '''
-    # this part of the code does not yet work propperly
-    # future work!
-
-    def predict_HOO(self, val_inds, l = 1.0):
+    def predict_HOO(self, val_inds, l = 1.0, predictions = True, MSE = False):
         """
         Makes a prediction for the instances indexed by val_inds, by using a
         model trained by all the remaining instances
@@ -67,20 +63,24 @@ class RegularizedLeastSquaresGeneral:
         returns: estimated labels for tuning instances, parameters estimated
         on the train set
         """
-        number_inds = len(val_inds)
-        mask_train_indices = np.ones(self._N, dtype=bool)
-        mask_train_indices[val_inds] = False  # mask for training indices
-        eigenvectors_HO = self._U[val_inds]
-        eigvect_weighted_HO = eigenvectors_HO*self._Sigma/(self._Sigma + l)
-        eigenvectors_HI = self._U[mask_train_indices]
-        delearner = np.linalg.inv(eigvect_weighted_HO.dot(eigvect_weighted_HO.T) -\
-                np.eye(number_inds))
-        predictions_HOO = eigenvectors_HO.dot(\
-                np.diag(self._Sigma/(self._Sigma + l)) - \
-                np.dot(eigvect_weighted_HO.T, delearner.dot(eigvect_weighted_HO))).dot(\
-                np.dot(eigenvectors_HI.T, self._Y[mask_train_indices]))
-        return predictions_HOO
-    '''
+        train_inds = filter(lambda ind: ind not in val_inds, range(self._N))
+        reg_inverted_eigvals = 1./(self._Sigma + l)
+        U_train = self._U[train_inds,:]
+        U_val = self._U[val_inds,:]
+        B = (U_train * reg_inverted_eigvals).dot(U_val.T)
+        inverted_val = np.linalg.inv((U_val * reg_inverted_eigvals).dot(U_val.T))
+        hat_hoo = (U_train * reg_inverted_eigvals).dot(U_train.T) -\
+                B.dot(inverted_val).dot(B.T)
+        loo_values = (U_val * self._Sigma).dot(U_train.T).dot(hat_hoo)\
+                .dot(self._Y[train_inds])
+        if MSE:
+            loo_mse = np.mean( (loo_values - self._Y[val_inds])**2 )
+            if predictions:
+                return predictions, loo_mse
+            else:
+                return loo_mse
+        elif predictions:
+            return loo_values
 
     def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
         """
@@ -303,3 +303,5 @@ if __name__ == "__main__":
     RFR.fit(X[:100], Y[:100])
     Yhat_rls = RFR.predict(X[100:])
     mse_rfr = mean_squared_error(Y[100:], Yhat_rls)
+
+    preds_hoo = RLS.predict_HOO(range(10), 10)
