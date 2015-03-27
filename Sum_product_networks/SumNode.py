@@ -31,18 +31,18 @@ class SumNode():
         # get the parameters of the lower models
         for prod in self._product_nodes:
             parameters = parameters.union(prod.get_parameters())
-        return parameters
+        return list(parameters)
 
 
 class ProductNode():
     def __init__(self, inputs_nodes, initial_layer=False):
         self._product_size = len(inputs_nodes)  # number of elements to combine
         if initial_layer:
-            self.sum_output = T.mul([inp.pdf for inp in inputs_nodes])
+            self.sum_output = T.mul(*[inp.pdf for inp in inputs_nodes])
             self.max_output = self.sum_output
         else:
-            self.sum_output = T.mul([inp.sum_output for inp in inputs_nodes])
-            self.max_output = T.mul([inp.max_output for inp in inputs_nodes])
+            self.sum_output = T.mul(*[inp.sum_output for inp in inputs_nodes])
+            self.max_output = T.mul(*[inp.max_output for inp in inputs_nodes])
         self._inputs = inputs_nodes
         self._initial_flag = initial_layer
 
@@ -54,7 +54,7 @@ class ProductNode():
         # get the parameters of the lower models
         for prod in self._inputs:
             parameters = parameters.union(prod.get_parameters())
-        return parameters
+        return list(parameters)
 
     def output(self):
         '''
@@ -70,13 +70,13 @@ class BernoulliPDF():
     def __init__(self, x):
         self._params = theano.shared(np.random.randn())
         self._prob_succes = T.nnet.sigmoid(self._params)
-        self.pdf = (self._prob_succes**x) * (1 - self._prob_succes)**(1-x)
+        self.pdf = T.mul((self._prob_succes**x), (1.0 - self._prob_succes)**(1-x))
 
     def get_parameters(self):
         """
         Returns parameters of the pdf
         """
-        parameters = set([self._params])
+        parameters = [self._params]
         return parameters
 
 if __name__ == "__main__":
@@ -88,8 +88,10 @@ if __name__ == "__main__":
 
     products_l1 = [ProductNode([pdf_x1[i], pdf_x2[i]], initial_layer=True) for i in range(10)]
 
+    prod_f = theano.function([x1, x2], [prod.max_output for prod in products_l1])
+
     sum_l1 = SumNode([prod for prod in products_l1])
 
-    max_f = theano.function([x1,x2], sum_l1.max_output, mode='DebugMode')
+    max_f = theano.function([x1,x2], sum_l1.max_output)
 
     print max_f(1,0)
