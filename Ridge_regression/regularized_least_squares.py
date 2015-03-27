@@ -63,16 +63,16 @@ class RegularizedLeastSquaresGeneral:
         returns: estimated labels for tuning instances, parameters estimated
         on the train set
         """
-        train_inds = filter(lambda ind: ind not in val_inds, range(self._N))
-        reg_eigvals = (self._Sigma + l)
-        U_train = self._U[train_inds,:]
-        U_val = self._U[val_inds,:]
-        B = (U_train / reg_eigvals).dot(U_val.T)
-        inverted_val = np.linalg.inv((U_val / reg_eigvals).dot(U_val.T))
-        hat_hoo = (U_train / reg_eigvals).dot(U_train.T) -\
-                B.dot(inverted_val).dot(B.T)
-        loo_values = (U_val * self._Sigma).dot(U_train.T).dot(hat_hoo)\
-                .dot(self._Y[train_inds])
+        train_inds = [i for i in range(self._N) if i not in val_inds]
+        reg_eigvals = (self._Sigma + 1.0)
+        U_val = self._U[val_inds]
+        U_train = self._U[train_inds]
+        B_block = np.dot(U_val / reg_eigvals, U_train.T).T
+        C_block = np.linalg.inv(np.dot(U_val / reg_eigvals, U_val.T))
+        A = np.dot(U_train / reg_eigvals, U_train.T)
+        K_val = np.dot(U_val * self._Sigma, U_train.T)
+        Hat_HO = K_val.dot(A - B_block.dot(C_block).dot(B_block.T))
+        loo_values = Hat_HO.dot(Y[train_inds])
         if MSE:
             loo_mse = np.mean( (loo_values - self._Y[val_inds])**2 )
             if predictions:
