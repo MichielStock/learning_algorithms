@@ -1,3 +1,13 @@
+"""
+Created on Fri Mar 27 2015
+Last update: -
+
+@author: Michiel Stock
+michielfmstock@gmail.com
+
+Implementation of the modules needed for
+"""
+
 import theano
 import theano.tensor as T
 import numpy as np
