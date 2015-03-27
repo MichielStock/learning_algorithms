@@ -12,6 +12,26 @@ def generate_random_choices(n_choices, n_vars, n_elements):
     return [[rd.randint(0, n_elements-1) for var in range(n_vars)]\
             for i in range(n_choices)]
 
+vector = T.vector()
+f_soft_max = theano.function([vector], T.nnet.softmax(vector))
+scalar = T.dscalar()
+f_sigmoid = theano.function([scalar], T.nnet.sigmoid(scalar))
+
+
+def weighted_random_choice(list_to_choose_from, unstandardised_weights):
+    """
+    Weighted sample from a list
+    """
+    weights = f_soft_max(unstandardised_weights)
+    random_number = rd.random()
+    value = 0.0
+    i = 0
+    while value <= random_number:
+        element = list_to_choose_from[i]
+        value += weights[0,i]
+        i += 1
+    return element
+
 
 class SumNode():
     def __init__(self, product_nodes):
@@ -33,6 +53,12 @@ class SumNode():
             parameters = parameters.union(prod.get_parameters())
         return list(parameters)
 
+    def sample(self):
+        """
+        Samples from the distribution
+        """
+        choice = weighted_random_choice(self._product_nodes, self._sum_weights.get_value())
+        return choice.sample()
 
 class ProductNode():
     def __init__(self, inputs_nodes, initial_layer=False):
@@ -62,6 +88,11 @@ class ProductNode():
         '''
         return self.product_output
 
+    def sample(self):
+        """
+        Samples from the distribution
+        """
+        return [inp.sample() for inp in self._inputs]
 
 class BernoulliPDF():
     """
@@ -78,6 +109,10 @@ class BernoulliPDF():
         """
         parameters = [self._params]
         return parameters
+
+    def sample(self):
+        p = f_sigmoid(self._params.get_value())
+        return np.random.binomial(1, p)
 
 if __name__ == "__main__":
     x1 = T.scalar('x1')
