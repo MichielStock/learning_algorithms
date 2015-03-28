@@ -185,3 +185,4 @@ if __name__ == "__main__":
     print sum_l1.sample()
 
     marg_f = theano.function([x1,x2, marg1], sum_l1.sum_output_marg)
+    print marg_f(0, -1, 0)
