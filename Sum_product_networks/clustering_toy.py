@@ -25,7 +25,7 @@ def univar_normal(x, mu=np.random.randn(), sigma=1.0):
     """
     mu_shared = theano.shared(mu)
     sigma_shared = theano.shared(sigma)
-    norm_pdf = 1/T.sqrt(2*np.pi*sigma**2)*T.exp(-(x - mu_shared)**2/sigma_shared**2)
+    norm_pdf = 1/T.sqrt(2*np.pi*sigma**2)*T.exp(-(x - mu_shared)**2/sigma_shared**2/2)
     return norm_pdf, [mu_shared, sigma_shared]
 
 
@@ -60,9 +60,9 @@ normalization = T.sum(T.abs_(sum_weights))
 log_MAP = T.sum(T.log(top_sum_value/normalization))
 
 params = [sum_weights, mu_X1, sigma_X1, mu_X2, sigma_X2]
-learning_rate = 0.001
+learning_rate = 0.1
 
-complexity_penalty = 0.00001 * T.sum(map(lambda x: T.mean(T.abs_(x)), params)) # L1
+complexity_penalty = 0.00000001 * T.sum(map(lambda x: T.mean(T.abs_(x)), params)) # L1
 
 gradient_params  = T.grad(log_MAP + complexity_penalty, params)
 
@@ -79,7 +79,7 @@ import matplotlib.pyplot as plt
 X, Y = make_blobs(n_samples=100, centers=7, cluster_std=1)
 #X, y = make_moons(n_samples=1000, noise = 10)
 
-for iteration in range(5000):
+for iteration in range(10000):
     print train(X[:,0].reshape((-1,1)), X[:,1].reshape((-1,1)))
 
 map_value = theano.function((X1, X2), - T.log(top_sum_value/normalization))
