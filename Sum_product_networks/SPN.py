@@ -5,7 +5,7 @@ Last update: -
 @author: Michiel Stock
 michielfmstock@gmail.com
 
-Implementation of the modules needed for
+Implementation of the modules needed for a som product network
 """
 
 import theano
@@ -186,3 +186,5 @@ if __name__ == "__main__":
 
     marg_f = theano.function([x1,x2, marg1], sum_l1.sum_output_marg)
     print marg_f(0, -1, 0)
+
+    # note: use the function grad to find the map posterior
