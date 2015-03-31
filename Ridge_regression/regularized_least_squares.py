@@ -123,6 +123,7 @@ class RegularizedLeastSquaresGeneral:
         if verbose: print 'Best lambda of %s gives a mse of %s'\
                 %(best_lambda, best_MSE)
         self.train_model(best_lambda)
+        self.best_lambda = best_lambda
         return best_lambda, best_MSE
 
     def get_norm(self):
@@ -168,7 +169,6 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     def predict(self, Xnew):
         return np.dot(Xnew, self._W)
 
-
 class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     """
     Modification of the standard regularized least squares to cope
@@ -188,8 +188,8 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
         self._Sigma, self._U = np.linalg.eigh(K)
-        self._U = self._U[:, self._Sigma > 1e-8]
-        self._Sigma = self._Sigma[self._Sigma > 1e-8]
+        self._U = self._U
+        self._Sigma = self._Sigma
 
     def train_model(self, l = 1.0):
         """
@@ -214,6 +214,56 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         if hasattr(self, '_A'):
             return self._A
         else: raise AttributeError
+
+class GaussianProcess(KernelRegularizedLeastSquares):
+
+    def __init__(self, Y, K):
+        """
+        Initialization of the instances
+        automatically performs a decomposition on the kernel matrix
+        """
+        self._Y = Y
+        self._N = Y.shape[0]
+        assert self._N == K.shape[0] and self._N == K.shape[1]
+        # perform decomposition of X
+        self._Sigma, self._U = np.linalg.eigh(K)
+        self._U = self._U
+        self._Sigma = self._Sigma
+
+    def train_model(self, alphamin1=1.0, betamin1=1.0):
+        """
+        Trains model for a GP
+        """
+        self._A = alphamin1*(self._U/(alphamin1 * self._Sigma + betamin1)).dot(np.dot(self._U.T, self._Y))
+        self.alphamin1 = alphamin1
+        self.betamin1 = betamin1
+
+    def predict(self, Knew):
+        return np.dot(Knew, self._A)
+
+    def posterior_likelihood(self, alphamin1=1.0, betamin1 = 1.0):
+        """
+        Calculates the posterior likelihood assuming a Gaussian process
+        """
+        reg_eiv = (alphamin1*self._Sigma + betamin1)
+        model_projected = (self._Y.T).dot(self._U)
+        model_norm = np.sum((model_projected/reg_eiv).dot(model_projected.T))
+        return - 0.5 * self._Y.shape[1] * np.sum(np.log(reg_eiv)) - 0.5 * model_norm\
+                - self._N * self._Y.shape[1]/2*np.log(2*np.pi)
+
+    def posterior_model_selection(self, a_grid, b_grid):
+        """
+        Does model model selection based on postior likelihood for all the
+        possible regularization parameters from l_grid
+        returns best lambda and best plh and trains the model according to
+        the best found lambda
+        """
+        post = [(self.posterior_likelihood(a, b), a, b) for a in a_grid for b in b_grid]
+        best_post = max(post)
+        print 'Best alpha^-1 is %s, best beta^-1 is %s (post. of %s)'\
+                %(best_post[1], best_post[2], best_post[0])
+        self.train_model(best_post[1], best_post[2])
+        self.best_post = best_post
 
 if __name__ == "__main__":
     import random as rd
@@ -305,3 +355,8 @@ if __name__ == "__main__":
     mse_rfr = mean_squared_error(Y[100:], Yhat_rls)
 
     print 'LOOCV and HOO are the same:', np.allclose(RLS.predict_LOOCV()[0], RLS.predict_HOO([0]))
+
+    GP = GaussianProcess(Y[:100], X[:100].dot(X[:100].T))
+    GP.posterior_model_selection([2**i for i in range(-10, 10)], [2**i for i in range(-10, 10)])
+    Yhat_gp = GP.predict(np.dot(X[:100],X[100:].T))
+    mse_gp = mean_squared_error(Y[100:], Yhat_gp)
