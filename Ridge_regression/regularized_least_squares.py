@@ -8,6 +8,7 @@ Implementations of the RLS methods for one object
 """
 
 import numpy as np
+import random as rd
 
 class RegularizedLeastSquaresGeneral:
     """
@@ -64,7 +65,7 @@ class RegularizedLeastSquaresGeneral:
         on the train set
         """
         train_inds = [i for i in range(self._N) if i not in val_inds]
-        reg_eigvals = (self._Sigma + 1.0)
+        reg_eigvals = (self._Sigma + l)
         U_val = self._U[val_inds]
         U_train = self._U[train_inds]
         B_block = np.dot(U_val / reg_eigvals, U_train.T).T
@@ -122,6 +123,23 @@ class RegularizedLeastSquaresGeneral:
             if verbose: print 'Lambda = %s (MSE = %s)' %(l, MSE_l)
         if verbose: print 'Best lambda of %s gives a mse of %s'\
                 %(best_lambda, best_MSE)
+        self.train_model(best_lambda)
+        self.best_lambda = best_lambda
+        return best_lambda, best_MSE
+
+    def CV_model_selection(self, l_grid, n_folds=4, verbose=False):
+        """
+        Performas a K-fold CV parameter selection
+        """
+        indices = range(self._N)
+        rd.shuffle(indices)
+        folds = [indices[f*self._N/n_folds:(f+1)*self._N/n_folds]\
+                for f in range(n_folds)]
+        performance_l = [(np.mean([self.predict_HOO(hoo_ind, l,\
+                predictions = False, MSE = True) for hoo_ind in folds]), l)\
+                for l in l_grid]
+        if verbose: print performance_l
+        best_MSE, best_lambda = min(performance_l)
         self.train_model(best_lambda)
         self.best_lambda = best_lambda
         return best_lambda, best_MSE
