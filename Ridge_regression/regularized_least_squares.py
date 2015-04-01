@@ -1,6 +1,6 @@
 """
 Created on Wed Nov 2 2014
-Last update: Fri Mar 6 2015
+Last update: Wed Apr 1 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -8,6 +8,7 @@ Implementations of the RLS methods for one object
 """
 
 import numpy as np
+import random as rd
 
 class RegularizedLeastSquaresGeneral:
     """
@@ -55,11 +56,7 @@ class RegularizedLeastSquaresGeneral:
         """
         self._Y = Y
 
-    '''
-    # this part of the code does not yet work propperly
-    # future work!
-
-    def predict_HOO(self, val_inds, l = 1.0):
+    def predict_HOO(self, val_inds, l = 1.0, predictions = True, MSE = False):
         """
         Makes a prediction for the instances indexed by val_inds, by using a
         model trained by all the remaining instances
@@ -67,20 +64,24 @@ class RegularizedLeastSquaresGeneral:
         returns: estimated labels for tuning instances, parameters estimated
         on the train set
         """
-        number_inds = len(val_inds)
-        mask_train_indices = np.ones(self._N, dtype=bool)
-        mask_train_indices[val_inds] = False  # mask for training indices
-        eigenvectors_HO = self._U[val_inds]
-        eigvect_weighted_HO = eigenvectors_HO*self._Sigma/(self._Sigma + l)
-        eigenvectors_HI = self._U[mask_train_indices]
-        delearner = np.linalg.inv(eigvect_weighted_HO.dot(eigvect_weighted_HO.T) -\
-                np.eye(number_inds))
-        predictions_HOO = eigenvectors_HO.dot(\
-                np.diag(self._Sigma/(self._Sigma + l)) - \
-                np.dot(eigvect_weighted_HO.T, delearner.dot(eigvect_weighted_HO))).dot(\
-                np.dot(eigenvectors_HI.T, self._Y[mask_train_indices]))
-        return predictions_HOO
-    '''
+        train_inds = [i for i in range(self._N) if i not in val_inds]
+        reg_eigvals = (self._Sigma + l)
+        U_val = self._U[val_inds]
+        U_train = self._U[train_inds]
+        B_block = np.dot(U_val / reg_eigvals, U_train.T).T
+        C_block = np.linalg.inv(np.dot(U_val / reg_eigvals, U_val.T))
+        A = np.dot(U_train / reg_eigvals, U_train.T)
+        K_val = np.dot(U_val * self._Sigma, U_train.T)
+        Hat_HO = K_val.dot(A - B_block.dot(C_block).dot(B_block.T))
+        loo_values = Hat_HO.dot(Y[train_inds])
+        if MSE:
+            loo_mse = np.mean( (loo_values - self._Y[val_inds])**2 )
+            if predictions:
+                return predictions, loo_mse
+            else:
+                return loo_mse
+        elif predictions:
+            return loo_values
 
     def predict_LOOCV(self, l = 1.0, predictions = True, MSE = False):
         """
@@ -123,6 +124,24 @@ class RegularizedLeastSquaresGeneral:
         if verbose: print 'Best lambda of %s gives a mse of %s'\
                 %(best_lambda, best_MSE)
         self.train_model(best_lambda)
+        self.best_lambda = best_lambda
+        return best_lambda, best_MSE
+
+    def CV_model_selection(self, l_grid, n_folds=4, verbose=False):
+        """
+        Performas a K-fold CV parameter selection
+        """
+        indices = range(self._N)
+        rd.shuffle(indices)
+        folds = [indices[f*self._N/n_folds:(f+1)*self._N/n_folds]\
+                for f in range(n_folds)]
+        performance_l = [(np.mean([self.predict_HOO(hoo_ind, l,\
+                predictions = False, MSE = True) for hoo_ind in folds]), l)\
+                for l in l_grid]
+        if verbose: print performance_l
+        best_MSE, best_lambda = min(performance_l)
+        self.train_model(best_lambda)
+        self.best_lambda = best_lambda
         return best_lambda, best_MSE
 
     def get_norm(self):
@@ -144,13 +163,16 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         Initialization of the instances, works with decomposition of X
         Sigma contains the SQUARED eigenvalues
         """
-        U, Sigma_sqrt, VT = np.linalg.svd(X, full_matrices=False)
+        U, Sigma_sqrt, VT = np.linalg.svd(X, full_matrices=0)
         self._X = X
         self._Y = Y
         self._U = U
         self._V = VT.T  # use transpose to be algebraic correct
         self._Sigma = Sigma_sqrt**2  # need square for implementation
         self._N, self._P = U.shape
+        #self._U = self._U[:, self._Sigma > 1e-8]
+        #self._Sigma = self._Sigma[self._Sigma > 1e-8]
+        #self._V = self._V[:, self._Sigma > 1e-8]
 
     def train_model(self, l = 1.0):
         """
@@ -167,7 +189,6 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
 
     def predict(self, Xnew):
         return np.dot(Xnew, self._W)
-
 
 class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
     """
@@ -188,8 +209,8 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
         self._Sigma, self._U = np.linalg.eigh(K)
-        self._U = self._U[:, self._Sigma > 1e-8]
-        self._Sigma = self._Sigma[self._Sigma > 1e-8]
+        #self._U = self._U[:, self._Sigma > 1e-8]
+        #self._Sigma = self._Sigma[self._Sigma > 1e-8]
 
     def train_model(self, l = 1.0):
         """
@@ -214,6 +235,50 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         if hasattr(self, '_A'):
             return self._A
         else: raise AttributeError
+
+class GaussianProcess(KernelRegularizedLeastSquares):
+
+    def __init__(self, Y, K):
+        """
+        Initialization of the instances
+        automatically performs a decomposition on the kernel matrix
+        """
+        self._Y = Y
+        self._N = Y.shape[0]
+        assert self._N == K.shape[0] and self._N == K.shape[1]
+        # perform decomposition of X
+        self._Sigma, self._U = np.linalg.eigh(K)
+
+    def train_model(self, alphamin1=1.0, betamin1=1.0):
+        """
+        Trains model for a GP
+        """
+        self._A = alphamin1*(self._U/(alphamin1 * self._Sigma + betamin1)).dot(np.dot(self._U.T, self._Y))
+        self.alphamin1 = alphamin1
+        self.betamin1 = betamin1
+
+    def posterior_likelihood(self, alphamin1=1.0, betamin1 = 1.0):
+        """
+        Calculates the posterior likelihood assuming a Gaussian process
+        """
+        reg_eiv = (alphamin1*self._Sigma + betamin1)
+        model_norm = np.sum((self._Y.T).dot(self._U/reg_eiv).dot(self._U.T).dot(self._Y)) / self._Y.shape[1]
+        return  - 0.5 *  np.sum(np.log(reg_eiv)) - 0.5 * model_norm\
+                - self._N / 2 * np.log(2*np.pi)
+
+    def posterior_model_selection(self, a_grid, b_grid):
+        """
+        Does model model selection based on postior likelihood for all the
+        possible regularization parameters from l_grid
+        returns best lambda and best plh and trains the model according to
+        the best found lambda
+        """
+        post = [(self.posterior_likelihood(a, b), a, b) for a in a_grid for b in b_grid]
+        best_post = max(post)
+        print 'Best alpha^-1 is %s, best beta^-1 is %s (post. of %s)'\
+                %(best_post[1], best_post[2], best_post[0])
+        self.train_model(best_post[1], best_post[2])
+        self.best_post = best_post
 
 if __name__ == "__main__":
     import random as rd
@@ -292,14 +357,21 @@ if __name__ == "__main__":
     from sklearn.metrics import mean_squared_error
     from sklearn.ensemble import RandomForestRegressor
 
-    X, Y, coef = make_regression(n_samples=200, n_features=50, n_informative=10, n_targets=10, bias=0.0, effective_rank=20, tail_strength=0.5, noise=1, shuffle=True, coef=True)
+    X, Y, coef = make_regression(n_samples=200, n_features=50, n_informative=10, n_targets=10, bias=0.0, effective_rank=20, tail_strength=0.5, noise=10, shuffle=True, coef=True)
 
-    RLS = RegularizedLeastSquares(Y[:100], X[:100])
-    RLS.LOOCV_model_selection([10**i for i in range(-5, 5)],verbose=True)
-    Yhat_rls = RLS.predict(X[100:])
+    KRLS = KernelRegularizedLeastSquares(Y[:100], X[:100].dot(X[:100].T))
+    KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)],verbose=True)
+    Yhat_rls = KRLS.predict(np.dot(X[100:],X[:100].T))
     mse_rls = mean_squared_error(Y[100:], Yhat_rls)
 
-    RFR = RandomForestRegressor(n_estimators=50)
+    RFR = RandomForestRegressor(n_estimators=10)
     RFR.fit(X[:100], Y[:100])
     Yhat_rls = RFR.predict(X[100:])
     mse_rfr = mean_squared_error(Y[100:], Yhat_rls)
+
+    GP = GaussianProcess(Y[:100], X[:100].dot(X[:100].T))
+    GP.posterior_model_selection([2**i for i in range(-20, 20)], [2**i for i in range(-20, 20)])
+    Yhat_gp = GP.predict(np.dot(X[100:],X[:100].T))
+    mse_gp = mean_squared_error(Y[100:], Yhat_gp)
+
+    print "KRLS: %s, RF: %s, GP: %s" %(mse_rls, mse_rfr, mse_gp)
