@@ -145,13 +145,16 @@ class RegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         Initialization of the instances, works with decomposition of X
         Sigma contains the SQUARED eigenvalues
         """
-        U, Sigma_sqrt, VT = np.linalg.svd(X, full_matrices=False)
+        U, Sigma_sqrt, VT = np.linalg.svd(X, full_matrices=0)
         self._X = X
         self._Y = Y
         self._U = U
         self._V = VT.T  # use transpose to be algebraic correct
         self._Sigma = Sigma_sqrt**2  # need square for implementation
         self._N, self._P = U.shape
+        #self._U = self._U[:, self._Sigma > 1e-8]
+        #self._Sigma = self._Sigma[self._Sigma > 1e-8]
+        #self._V = self._V[:, self._Sigma > 1e-8]
 
     def train_model(self, l = 1.0):
         """
@@ -188,8 +191,8 @@ class KernelRegularizedLeastSquares(RegularizedLeastSquaresGeneral):
         assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
         self._Sigma, self._U = np.linalg.eigh(K)
-        self._U = self._U
-        self._Sigma = self._Sigma
+        #self._U = self._U[:, self._Sigma > 1e-8]
+        #self._Sigma = self._Sigma[self._Sigma > 1e-8]
 
     def train_model(self, l = 1.0):
         """
@@ -227,8 +230,6 @@ class GaussianProcess(KernelRegularizedLeastSquares):
         assert self._N == K.shape[0] and self._N == K.shape[1]
         # perform decomposition of X
         self._Sigma, self._U = np.linalg.eigh(K)
-        self._U = self._U
-        self._Sigma = self._Sigma
 
     def train_model(self, alphamin1=1.0, betamin1=1.0):
         """
@@ -238,18 +239,14 @@ class GaussianProcess(KernelRegularizedLeastSquares):
         self.alphamin1 = alphamin1
         self.betamin1 = betamin1
 
-    def predict(self, Knew):
-        return np.dot(Knew, self._A)
-
     def posterior_likelihood(self, alphamin1=1.0, betamin1 = 1.0):
         """
         Calculates the posterior likelihood assuming a Gaussian process
         """
         reg_eiv = (alphamin1*self._Sigma + betamin1)
-        model_projected = (self._Y.T).dot(self._U)
-        model_norm = np.sum((model_projected/reg_eiv).dot(model_projected.T))
-        return - 0.5 * self._Y.shape[1] * np.sum(np.log(reg_eiv)) - 0.5 * model_norm\
-                - self._N * self._Y.shape[1]/2*np.log(2*np.pi)
+        model_norm = np.sum((self._Y.T).dot(self._U/reg_eiv).dot(self._U.T).dot(self._Y)) / self._Y.shape[1]
+        return  - 0.5 *  np.sum(np.log(reg_eiv)) - 0.5 * model_norm\
+                - self._N / 2 * np.log(2*np.pi)
 
     def posterior_model_selection(self, a_grid, b_grid):
         """
@@ -342,21 +339,21 @@ if __name__ == "__main__":
     from sklearn.metrics import mean_squared_error
     from sklearn.ensemble import RandomForestRegressor
 
-    X, Y, coef = make_regression(n_samples=200, n_features=50, n_informative=10, n_targets=10, bias=0.0, effective_rank=20, tail_strength=0.5, noise=1, shuffle=True, coef=True)
+    X, Y, coef = make_regression(n_samples=200, n_features=50, n_informative=10, n_targets=10, bias=0.0, effective_rank=20, tail_strength=0.5, noise=10, shuffle=True, coef=True)
 
-    RLS = RegularizedLeastSquares(Y[:100], X[:100])
-    RLS.LOOCV_model_selection([10**i for i in range(-5, 5)],verbose=True)
-    Yhat_rls = RLS.predict(X[100:])
+    KRLS = KernelRegularizedLeastSquares(Y[:100], X[:100].dot(X[:100].T))
+    KRLS.LOOCV_model_selection([10**i for i in range(-5, 5)],verbose=True)
+    Yhat_rls = KRLS.predict(np.dot(X[100:],X[:100].T))
     mse_rls = mean_squared_error(Y[100:], Yhat_rls)
 
-    RFR = RandomForestRegressor(n_estimators=50)
+    RFR = RandomForestRegressor(n_estimators=10)
     RFR.fit(X[:100], Y[:100])
     Yhat_rls = RFR.predict(X[100:])
     mse_rfr = mean_squared_error(Y[100:], Yhat_rls)
 
-    print 'LOOCV and HOO are the same:', np.allclose(RLS.predict_LOOCV()[0], RLS.predict_HOO([0]))
-
     GP = GaussianProcess(Y[:100], X[:100].dot(X[:100].T))
-    GP.posterior_model_selection([2**i for i in range(-10, 10)], [2**i for i in range(-10, 10)])
-    Yhat_gp = GP.predict(np.dot(X[:100],X[100:].T))
+    GP.posterior_model_selection([2**i for i in range(-20, 20)], [2**i for i in range(-20, 20)])
+    Yhat_gp = GP.predict(np.dot(X[100:],X[:100].T))
     mse_gp = mean_squared_error(Y[100:], Yhat_gp)
+
+    print "KRLS: %s, RF: %s, GP: %s" %(mse_rls, mse_rfr, mse_gp)

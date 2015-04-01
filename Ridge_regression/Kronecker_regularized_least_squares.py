@@ -275,10 +275,10 @@ class KroneckerRegularizedLeastSquares(KroneckerRegularizedLeastSquaresGeneral):
             Sigma, U = np.linalg.eigh(K_u)
             Delta, V = np.linalg.eigh(np.dot(C, K_v))
             self._Y = np.dot(Y, C)
-        self._U = U[:,Sigma>1e-15]  # eigenvectors first type of objects
-        self._V = V[:,Delta>1e-15]  # eigenvectors second type of objects
-        self._Sigma = Sigma[Sigma > 1e-15]  # eigenvalues of first type of objects
-        self._Delta = Delta[Delta > 1e-15]  # eigenvalues of second type of objects
+        self._U = U  # eigenvectors first type of objects
+        self._V = V  # eigenvectors second type of objects
+        self._Sigma = Sigma  # eigenvalues of first type of objects
+        self._Delta = Delta  # eigenvalues of second type of objects
         self.n_u, self.n_v = Y.shape
 
     def train_model(self, regularisation, algorithm='2SRLS', return_Yhat=False):
@@ -311,8 +311,8 @@ if __name__ == "__main__":
     import random as rd
 
     # number of objects
-    n_u = 1000
-    n_v = 1000
+    n_u = 500
+    n_v = 500
 
     # dimension of objects
     p_u = 18
