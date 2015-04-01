@@ -1,6 +1,6 @@
 """
 Created on Tue Feb 17 2015
-Last update: Thu Mar 12 2015
+Last update: Wed Apr 1 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -167,7 +167,6 @@ class KroneckerRegularizedLeastSquaresGeneral:
     def predict_LOPO(self, regularisation, algorithm, preds=True, mse=False):
         """
         Predicts for one pair out for the given algorithm and regularisation
-        => could be made more efficient
         """
         n_u, n_v = self._Y.shape
         Yhat = self.train_model(regularisation, algorithm, return_Yhat=True)
