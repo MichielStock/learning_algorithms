@@ -195,10 +195,10 @@ if __name__ == "__main__":
     marg1 = T.scalar()
     marg2 = T.scalar()
 
-    pdf_x1 = [BernoulliPDF(x1, marg1) for i in range(10)]
-    pdf_x2 = [NormalPDF(x2) for i in range(10)]
+    pdf_x1 = [BernoulliPDF(x1, marg1) for i in range(30)]
+    pdf_x2 = [NormalPDF(x2) for i in range(30)]
 
-    products_l1 = [ProductNode([pdf_x1[i], pdf_x2[i]], initial_layer=True) for i in range(10)]
+    products_l1 = [ProductNode([pdf_x1[i], pdf_x2[i]], initial_layer=True) for i in range(30)]
 
     prod_f = theano.function([x1, x2], [prod.max_output for prod in products_l1])
 
