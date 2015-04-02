@@ -118,8 +118,10 @@ class BernoulliPDF():
     """
     def __init__(self, x, marginal_flag=None):
         self._params = theano.shared(np.random.randn())
+        self.name = x.name
         self._prob_succes = T.nnet.sigmoid(self._params)
         self.pdf = T.mul((self._prob_succes**x), (1.0 - self._prob_succes)**(1-x))
+        self.pdf_function = theano.function([x], self.pdf)
         self.pdf_marg = T.mul((self._prob_succes**x), (1.0 - self._prob_succes)**(1-x))
         if marginal_flag:
             self.pdf_marg **= marginal_flag
@@ -132,8 +134,20 @@ class BernoulliPDF():
         return parameters
 
     def sample(self):
+        """
+        Generates a sample from the distribution
+        """
         p = f_sigmoid(self._params.get_value())
-        return np.random.binomial(1, p)
+        return (self.name, np.random.binomial(1, p))
+
+    def mode(self):
+        """
+        Returns the mode and the pdf value of this distribition
+        """
+        p = self._params.get_value()
+        mode = np.argmax(1-p, p)
+        mode_probability = self.pdf_function(mode)
+        return mode, mode_probability
 
 
 class NormalPDF():
@@ -141,14 +155,15 @@ class NormalPDF():
     Univariate normal distribution
     """
     def __init__(self, x, marginal_flag=None):
+        self.name = x.name
         self._params = theano.shared(np.random.randn(2))
         self.pdf = T.exp(-(x - self._params[0])**2/(2*self._params[1]**2))/\
                 T.sqrt(2*np.pi*self._params[1]**2)
+        self.pdf_function = theano.function([x], self.pdf)
         self.pdf_marg = T.exp(-(x - self._params[0])**2/(2*self._params[1]**2))/\
                 T.sqrt(2*np.pi*self._params[1]**2)
         if marginal_flag:
             self.pdf_marg **= marginal_flag
-
 
     def get_parameters(self):
         """
@@ -158,10 +173,20 @@ class NormalPDF():
         return parameters
 
     def sample(self):
+        """
+        Generates a sample from the distribution
+        """
         standard_random = np.random.randn()
-        return (standard_random + self._params.get_value()[0])/\
-                np.abs(self._params.get_value()[1])
+        return (self.name, (standard_random + self._params.get_value()[0])/\
+                np.abs(self._params.get_value()[1]))
 
+    def mode(self):
+        """
+        Returns the mode and the pdf value of this distribition
+        """
+        mode = self._params.get_value()[0]
+        mode_probability = self.pdf_function(mode)
+        return mode, mode_probability
 
 if __name__ == "__main__":
     x1 = T.scalar('x1')
