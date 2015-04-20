@@ -145,7 +145,7 @@ class MLP(object):
         # Recursively compute output
         if not train:
             for layer in self.layers:
-                x = layer.output(x)
+                x = layer.output(x, 0)
         else:
             for layer in self.layers:
                 x = layer.output(x, self.dropout_fraction)
@@ -193,22 +193,22 @@ if __name__=='__main__':
 
     from sklearn.datasets import make_multilabel_classification
 
-    X, Y = make_multilabel_classification(n_samples=5000,
+    X, Y = make_multilabel_classification(n_samples=55000,
             n_features=100, n_classes=50, n_labels=5, length=100,
             return_indicator=True)
 
-    W_init = [np.random.randn(200, 100),
-                np.random.randn(200, 200),
-                np.random.randn(200, 200),
-                np.random.randn(50, 200)]
+    W_init = [0.1*np.random.randn(200, 100),
+                #0.1*np.random.randn(200, 200),
+                0.1*np.random.randn(200, 200),
+                0.1*np.random.randn(50, 200)]
 
-    b_init = [np.random.randn(200),
-                np.random.randn(200),
-                np.random.randn(200),
-                np.random.randn(50)]
+    b_init = [0.1*np.random.randn(200),
+                #0.1*np.random.randn(200),
+                0.1*np.random.randn(200),
+                0.1*np.random.randn(50)]
 
     activations = [max_activation,
-                    max_activation,
+                    #max_activation,
                     max_activation,
                     T.nnet.sigmoid]
 
@@ -220,17 +220,20 @@ if __name__=='__main__':
     model_output_dropout = multi_layer_perceptron.output(inp.T, True)
     model_output = multi_layer_perceptron.output(inp.T, False)
 
-    cost = T.mean(T.nnet.binary_crossentropy(model_output_dropout.T, target.T))
+    cost = T.mean(T.nnet.binary_crossentropy(model_output_dropout.T, target))
 
-    updates = gradient_updates_momentum(cost, params, learning_rate=0.1, momentum=0.8)
+    updates = gradient_updates_momentum(cost, params, learning_rate=0.11, momentum=0.3)
 
     train = theano.function([inp, target], cost, updates=updates)
-    predict = theano.function([inp, target], model_output)
+    predict = theano.function([inp], model_output.T)
+    error = theano.function([inp, target], cost)
 
-    mini_batch_size = 100
-    for iteration in range(100):
-        for i in range(0, 4000, mini_batch_size):
+
+
+    mini_batch_size = 1000
+    for iteration in range(500):
+        for i in range(0, 50000, mini_batch_size):
             X_tr = X[i:i+mini_batch_size]
             Y_tr = Y[i:i+mini_batch_size]
             c = train(X_tr, Y_tr)
-            print c
+        print iteration, ':', error(X[50000:], Y[50000:])
