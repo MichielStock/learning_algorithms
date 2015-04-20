@@ -212,7 +212,7 @@ if __name__=='__main__':
                     max_activation,
                     T.nnet.sigmoid]
 
-    multi_layer_perceptron = MLP(W_init, b_init, activations, 0.5)
+    multi_layer_perceptron = MLP(W_init, b_init, activations, 0.25)
 
     params = multi_layer_perceptron.params
     inp = T.matrix()
