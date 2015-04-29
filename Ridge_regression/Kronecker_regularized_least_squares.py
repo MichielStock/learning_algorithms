@@ -164,6 +164,33 @@ class KroneckerRegularizedLeastSquaresGeneral:
         elif mse and preds:
             return loov, mse_loocv
 
+    def predict_LOOCV_general_2SRLS(self, reg_1, reg_2, method, preds=True,
+            mse=False):
+        """
+        Perfroms LOOCV for pairs, rows, columns or both for a given pair
+        of regularization paramereters
+
+        parameters:
+                - reg_1 : first regularization parameter
+                - reg_2 : second regularization parameter
+                - method : how to calculate the LOOCV (pairs, rows, columns or both)
+                - preds : return predictions
+                - mse : return mean squared error
+        """
+        if method ==  'rows':
+            result = self.predict_LOOCV_rows_2SRLS((reg_1, reg_2),\
+                            preds=preds, mse=mse)
+        elif method ==  'columns':
+            result = self.predict_LOOCV_columns_2SRLS((reg_1, reg_2),\
+                            preds=preds, mse=mse)
+        elif method ==  'both':
+            result = self.predict_LOOCV_both_2SRLS((reg_1, reg_2),\
+                            preds=preds, mse=mse)
+        elif method ==  'pairs':
+            result = self.predict_LOPO((reg_1, reg_2),\
+                            preds=preds, mse=mse, algorithm='2SRLS')
+        return result
+
     def predict_LOPO(self, regularisation, algorithm, preds=True, mse=False):
         """
         Predicts for one pair out for the given algorithm and regularisation
