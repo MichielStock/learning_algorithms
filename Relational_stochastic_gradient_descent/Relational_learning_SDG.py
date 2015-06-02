@@ -44,7 +44,7 @@ class RelationalModel:
         self.cost += regularization[0] * reg_type[0]( self.U )
         self.cost += regularization[1] * reg_type[1]( self.V )
 
-    def make_stochastic_gradient_descent_updates(self, learning_rate=1e-7):
+    def make_stochastic_gradient_descent_updates(self, learning_rate=1e-5):
         dU, dV = theano.grad(self.cost, [self.U, self.V])
         updates = []
         updates.append( (self.U, self.U - learning_rate * dU) )
