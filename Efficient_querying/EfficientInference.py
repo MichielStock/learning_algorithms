@@ -30,23 +30,20 @@ class TopKInference():
     def score_item(self, x_u, indice):
         return (dot(self.Y[indice], x_u), indice)
 
-    def update_top_list(self, top_list, new_scored_item, K, n_scored,
-            worst_in_list):
+    def update_top_list(self, top_list, new_scored_item, K, n_scored):
         """
         Updates the top-K list with a new scored item
         """
         if n_scored < K:
             top_list.append( new_scored_item )
             top_list.sort()
-        elif new_scored_item[0] > worst_in_list:
+        elif new_scored_item[0] > top_list[0][0]:
             # case that the new item is better than the worst in the list
             top_list[0] = new_scored_item  # replace the worst with the current
             top_list.sort()  # resort the list
-            worst_in_list = top_list[0][0]
             # python should be able to cope with partially ordered lists
             # so this is expected to be fast
         # returns nothing, processes the list
-        return worst_in_list
 
     def get_top_K_naive(self, x_u, K=1, count_calculations=False):
         """
@@ -54,11 +51,10 @@ class TopKInference():
         """
         top_list = []
         n_items_scored = 0
-        worst_in_list = -1e100
         for indice in range(self.M):
             new_scored_item = self.score_item(x_u, indice)
-            worst_in_list = self.update_top_list(top_list, new_scored_item, K,
-                n_items_scored, worst_in_list)
+            self.update_top_list(top_list, new_scored_item, K,
+                n_items_scored)
             n_items_scored += 1
         if count_calculations:
             return top_list, count_calculations
