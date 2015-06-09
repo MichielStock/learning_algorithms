@@ -217,6 +217,6 @@ if __name__ == '__main__':
 
     inferer.initialize_sorted_lists()
 
-    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 1, True)
+    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 10, True)
 
-    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 1, True)
+    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 10, True)
