@@ -167,7 +167,7 @@ class TopKInference():
         query_info_list.sort(reverse=True)
         scored = set([])
         #  we start with the upper bound which we update iteratively
-        upper_bound = sum(map(lambda x:x[0], query_info_list))
+        upper_bound = sum([x[0] for x in query_info_list])
         lower_bound = -1e100
         while upper_bound > lower_bound:
             partial_score, xi, r, pos, pos_action = query_info_list[0]
@@ -176,10 +176,10 @@ class TopKInference():
             # score item
             if item not in scored:
                 new_scored_item = self.score_item(x_u, item)
-                n_items_scored += 1
                 if n_items_scored < K or lower_bound < new_scored_item[0]:
                     self.update_top_list(top_list, new_scored_item, K,
                         n_items_scored)
+                n_items_scored += 1
                 scored.add(item)
             # update lower bound
             if n_items_scored >= K:
@@ -204,19 +204,19 @@ if __name__ == '__main__':
 
     import numpy as np
 
-    R = 10
+    R = 25
 
-    W = np.random.randn(100000, R)
+    W = np.random.rand(100000, R)**2
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)
+    x = np.random.randn(R)**2
     #x[3] = 100
 
     top_5_list_naive, n_scored_naive = inferer.get_top_K_naive(x, 5, True)
 
     inferer.initialize_sorted_lists()
 
-    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 5, True)
+    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 1, True)
 
-    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 5, True)
+    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 1, True)
