@@ -10,7 +10,7 @@ seperable linear models
 """
 
 from numpy import dot
-from heapq import heapify, heappop, heappush
+from heapq import heapify, heappop, heappush, heapreplace
 from time import time
 
 def calculate_partial_score(r, pos, xi, Y, sorted_lists):
@@ -94,14 +94,10 @@ class TopKInference():
         Updates the top-K list with a new scored item
         """
         if n_scored < K:
-            top_list.append( new_scored_item )
-            top_list.sort()
+            heappush(top_list, new_scored_item )
         elif new_scored_item[0] > top_list[0][0]:
             # case that the new item is better than the worst in the list
-            top_list[0] = new_scored_item  # replace the worst with the current
-            top_list.sort()  # resort the list
-            # python should be able to cope with partially ordered lists
-            # so this is expected to be fast
+            heapreplace(top_list, new_scored_item)  # replace the worst with the current
         # returns nothing, processes the list
 
     def get_top_K_naive(self, x_u, K=1, count_calculations=False):
@@ -299,4 +295,5 @@ if __name__ == '__main__':
     sparse_inferer = TopKInferenceSparse(Y)
     sparse_inferer.initialize_sorted_lists()
 
-    top_5_list_naive, n_scored_naive, runtime_naive = sparse_inferer.get_top_K_naive(np.random.randn(1000), K, True)
+    top_5_list_naive, n_scored_naive, runtime_naive = sparse_inferer.get_top_K_naive(sparse.rand(1,R)
+, K, True)
