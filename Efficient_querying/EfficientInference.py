@@ -49,6 +49,35 @@ class TopKInference():
         """
         self.sorted_lists = self.Y.argsort(0)
 
+    def get_top_k(self, queries, K=1, algorithm='enhanced', profile=False):
+        """
+        Returns the top-K objects for a given query
+        """
+        n_scores_calc = []
+        runtimes = []
+        top_Ks = []
+        for x_u in queries:
+            if algorithm=='enhanced':
+                top_list, n_items_scored, time = self.get_top_K_threshold_enhanced(\
+                    x_u, K, count_calculations=True)
+            elif algorithm=='threshold':
+                top_list, n_items_scored, time = self.get_top_K_threshold(\
+                    x_u, K, count_calculations=True)
+            elif algorithm=='naive':
+                top_list, n_items_scored, time = self.get_top_K_naive(\
+                    x_u, K, count_calculations=True)
+            else:
+                print 'Unknown algorithm selected...'
+                raise KeyError
+            top_Ks.append(top_list)
+            if profile:
+                runtimes.append(time)
+                n_scores_calc.append(n_items_scored)
+        if not profile:
+            return top_Ks
+        else:
+            return top_Ks, n_scores_calc, runtimes
+
     """
     def score_item(self, x_u, indice):
         return (dot(self.Y[indice], x_u), indice)
@@ -198,14 +227,17 @@ class TopKInference():
             return top_list
 
 
-
 if __name__ == '__main__':
 
     import numpy as np
     from time import clock
 
+    # TESTING THE DENSE FRAMEWORK
+    # ---------------------------
+
     R = 10
-    n = 1000000
+    n = 100000
+    K = 1
 
     W = np.random.rand(n, R)
 
@@ -214,13 +246,13 @@ if __name__ == '__main__':
     x = np.random.randn(R)**2
     #x[3] = 100
 
-    top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, 5, True)
+    top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, K, True)
 
     inferer.initialize_sorted_lists()
 
-    top_5_list_threshold, n_scored_threshold, runtime_thr = inferer.get_top_K_threshold(x, 5, True)
+    top_5_list_threshold, n_scored_threshold, runtime_thr = inferer.get_top_K_threshold(x, K, True)
 
-    top_5_list_threshold_enh, n_scored_threshold_enh, runtime_enh = inferer.get_top_K_threshold_enhanced(x, 5, True)
+    top_5_list_threshold_enh, n_scored_threshold_enh, runtime_enh = inferer.get_top_K_threshold_enhanced(x, K, True)
 
 
     print 'Tested for data of size %s with R of %s' %(n, R)
