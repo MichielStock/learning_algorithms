@@ -226,6 +226,30 @@ class TopKInference():
         else:
             return top_list
 
+class TopKInferenceSparse(TopKInference):
+
+    def initialize_sorted_lists(self):
+        """
+        Makes for each latent feature a list of the sorted indices for each item
+        """
+        self.Y = self.Y.tocoo()
+        self.sorted_lists = {r:[] for r in range(self.R)}
+        [self.sorted_lists[self.Y.col[i]].append( (self.Y.data[i], self.Y.row[i])) for i in xrange(self.Y.nnz) ]
+        [self.sorted_lists[r].sort() for r in range(self.R)]
+        [self.sorted_lists[r].reverse() for r in range(self.R)]
+        self.Y = self.Y.tocsr()
+
+    def score_item(self, x_u, indice):
+        return (self.Y[indice].dot(x_u.T).sum(), indice)
+
+    def get_top_K_threshold(self, x_u, K=1, count_calculations=False):
+        t0 = time()
+        top_list = []
+        n_items_scored = 0
+        non_zero_elements_query = [i for i, el in enumerate(x_u) if el != 0]
+        scored = set([])
+        upper_bound = 1
+        lower_bound = 0
 
 if __name__ == '__main__':
 
@@ -237,7 +261,7 @@ if __name__ == '__main__':
 
     R = 10
     n = 100000
-    K = 1
+    K = 10
 
     W = np.random.rand(n, R)
 
@@ -259,3 +283,20 @@ if __name__ == '__main__':
     print 'Naive: %s calculations in %s seconds' %(n_scored_naive, runtime_naive)
     print 'Threshold: %s calculations in %s seconds' %(n_scored_threshold, runtime_thr)
     print 'Enhanced threshold: %s calculations in %s seconds' %(n_scored_threshold_enh, runtime_enh)
+    print
+
+    # TESTING THE SPARSE FRAMEWORK
+    # ----------------------------
+
+    from scipy import sparse
+
+    R = 1000
+    n = 100000
+    K = 10
+
+    Y = sparse.rand(n, R, density=0.001)
+
+    sparse_inferer = TopKInferenceSparse(Y)
+    sparse_inferer.initialize_sorted_lists()
+
+    top_5_list_naive, n_scored_naive, runtime_naive = sparse_inferer.get_top_K_naive(np.random.randn(1000), K, True)
