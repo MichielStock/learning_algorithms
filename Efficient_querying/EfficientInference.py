@@ -11,6 +11,7 @@ seperable linear models
 
 from numpy import dot
 from numba import jit
+from heapq import heapify, heappop, heappush
 
 def calculate_partial_score(r, pos, xi, Y, sorted_lists):
     """
@@ -157,20 +158,21 @@ class TopKInference():
         n_items_scored = 0
         # initiate list with rules
         # contains tuples with
-        # (paritial score, xi, r, position_sorted_list, decr/incr sorted)
-        query_info_list = [(calculate_partial_score(r, 0, xi, self.Y, self.sorted_lists),
+        # (-paritial score, xi, r, position_sorted_list, decr/incr sorted)
+        # note negetive partial score for the heap!
+        query_info_list = [(-calculate_partial_score(r, 0, xi, self.Y, self.sorted_lists),
                         xi,
                         r,
                         0 if xi < 0 else -1,
                         1 if xi < 0 else -1)\
                 for r, xi in enumerate(x_u) if xi != 0]
-        query_info_list.sort(reverse=True)
+        heapify(query_info_list)  # turn in a heap in O(R) time
         scored = set([])
         #  we start with the upper bound which we update iteratively
-        upper_bound = sum([x[0] for x in query_info_list])
+        upper_bound = sum([-x[0] for x in query_info_list])
         lower_bound = -1e100
         while upper_bound > lower_bound:
-            partial_score, xi, r, pos, pos_action = query_info_list[0]
+            partial_score, xi, r, pos, pos_action = heappop(query_info_list)
             # get item
             item = self.sorted_lists[pos, r]
             # score item
@@ -187,12 +189,11 @@ class TopKInference():
             # update position for this list
             pos += pos_action
             # update the upper bound
-            upper_bound -= partial_score  # remove previous partial score
+            upper_bound += partial_score  # remove previous partial score (neg)
             partial_score = xi * self.Y[item, r]  # get new partial score
             upper_bound += partial_score
             # update the rule list
-            query_info_list[0] = (partial_score, xi, r, pos, pos_action)
-            cure_partial_ordered_list(query_info_list)  # keep ordering
+            heappush(query_info_list, (-partial_score, xi, r, pos, pos_action))
         if count_calculations:
             return top_list, n_items_scored
         else:
@@ -204,19 +205,19 @@ if __name__ == '__main__':
 
     import numpy as np
 
-    R = 25
+    R = 10
 
-    W = np.random.rand(100000, R)**2
+    W = np.random.rand(100000, R)
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)**2
+    x = np.random.randn(R)
     #x[3] = 100
 
     top_5_list_naive, n_scored_naive = inferer.get_top_K_naive(x, 5, True)
 
     inferer.initialize_sorted_lists()
 
-    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 10, True)
+    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 5, True)
 
-    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 10, True)
+    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 5, True)
