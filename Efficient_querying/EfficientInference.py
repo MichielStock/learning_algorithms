@@ -10,8 +10,8 @@ seperable linear models
 """
 
 from numpy import dot
-from numba import jit
 from heapq import heapify, heappop, heappush
+from time import time
 
 def calculate_partial_score(r, pos, xi, Y, sorted_lists):
     """
@@ -40,6 +40,8 @@ class TopKInference():
     def __init__(self, Y, initialize_lists=False):
         self.Y = Y
         self.M, self.R = Y.shape
+        if initialize_lists:
+            self.initialize_sorted_lists()
 
     def initialize_sorted_lists(self):
         """
@@ -47,8 +49,16 @@ class TopKInference():
         """
         self.sorted_lists = self.Y.argsort(0)
 
+    """
     def score_item(self, x_u, indice):
         return (dot(self.Y[indice], x_u), indice)
+    """
+
+    def score_item(self, x_u, indice):
+        result = 0.0
+        for i, xi in enumerate(x_u):
+            result += xi * self.Y[indice, i]
+        return (result, indice)
 
     def update_top_list(self, top_list, new_scored_item, K, n_scored):
         """
@@ -69,6 +79,7 @@ class TopKInference():
         """
         Returns top-K for a given query by naively scoring all the items
         """
+        t0 = time()
         top_list = []
         n_items_scored = 0
         for indice in range(self.M):
@@ -76,8 +87,9 @@ class TopKInference():
             self.update_top_list(top_list, new_scored_item, K,
                 n_items_scored)
             n_items_scored += 1
+        t1 = time()
         if count_calculations:
-            return top_list, n_items_scored
+            return top_list, n_items_scored, t1 - t0
         else:
             return top_list
 
@@ -98,6 +110,7 @@ class TopKInference():
         """
         Returns top-K using the threshold algorithm
         """
+        t0 = time()
         top_list = []
         n_items_scored = 0
         neg_elements_query = set([i for i, el in enumerate(x_u) if el < 0])
@@ -127,8 +140,9 @@ class TopKInference():
             if n_items_scored >= K:
                 lower_bound = top_list[0][0]
             depth += 1
+        t1 = time()
         if count_calculations:
-            return top_list, n_items_scored
+            return top_list, n_items_scored, t1 - t0
         else:
             return top_list
 
@@ -136,6 +150,7 @@ class TopKInference():
         """
         Returns top-K using the modified threshold algorithm
         """
+        t0 = time()
         top_list = []
         n_items_scored = 0
         # initiate list with rules
@@ -176,8 +191,9 @@ class TopKInference():
             upper_bound += partial_score
             # update the rule list
             heappush(query_info_list, (-partial_score, xi, r, pos, pos_action))
+        t1 = time()
         if count_calculations:
-            return top_list, n_items_scored
+            return top_list, n_items_scored, t1 - t0
         else:
             return top_list
 
@@ -186,20 +202,28 @@ class TopKInference():
 if __name__ == '__main__':
 
     import numpy as np
+    from time import clock
 
     R = 10
+    n = 1000000
 
-    W = np.random.rand(100000, R)
+    W = np.random.rand(n, R)
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)
+    x = np.random.randn(R)**2
     #x[3] = 100
 
-    top_5_list_naive, n_scored_naive = inferer.get_top_K_naive(x, 5, True)
+    top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, 5, True)
 
     inferer.initialize_sorted_lists()
 
-    top_5_list_threshold, n_scored_threshold = inferer.get_top_K_threshold(x, 5, True)
+    top_5_list_threshold, n_scored_threshold, runtime_thr = inferer.get_top_K_threshold(x, 5, True)
 
-    top_5_list_threshold_enh, n_scored_threshold_enh = inferer.get_top_K_threshold_enhanced(x, 5, True)
+    top_5_list_threshold_enh, n_scored_threshold_enh, runtime_enh = inferer.get_top_K_threshold_enhanced(x, 5, True)
+
+
+    print 'Tested for data of size %s with R of %s' %(n, R)
+    print 'Naive: %s calculations in %s seconds' %(n_scored_naive, runtime_naive)
+    print 'Threshold: %s calculations in %s seconds' %(n_scored_threshold, runtime_thr)
+    print 'Enhanced threshold: %s calculations in %s seconds' %(n_scored_threshold_enh, runtime_enh)
