@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: -
+Last update: Thu Jun 11 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -20,12 +20,6 @@ def calculate_partial_score(r, pos, xi, Y, sorted_lists):
     indice = sorted_lists[conditionalposition(pos, xi), r]
     return xi * Y[indice, r]
 
-def swap(l, i, j):
-    # swaps two elements on a postion of a list
-    temp = l[i]
-    l[i] = l[j]
-    l[j] = temp
-
 def conditionalposition(pos, xi):
     """
     returns position such that:
@@ -36,18 +30,6 @@ def conditionalposition(pos, xi):
         return pos
     else:
         return - pos - 1
-
-def cure_partial_ordered_list(posset):
-    """
-    Sorts a partial ordered list for which only the first element is out of
-    place
-    """
-    n = len(posset)
-    for i in range(n-1):
-        if posset[i][0] < posset[i+1][0]: # elements are not ordered
-            swap(posset, i, i+1)
-        else:
-            break
 
 class TopKInference():
     """
