@@ -345,16 +345,15 @@ if __name__ == '__main__':
     # TESTING THE DENSE FRAMEWORK
     # ---------------------------
 
-    R = 10
-    n = 100000
-    K = 10
+    R = 100
+    n = 1000000
+    K = 5
 
     W = np.random.rand(n, R)
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)**2
-    #x[3] = 100
+    x = np.random.randn(R)
 
     top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, K, True)
 
@@ -376,8 +375,8 @@ if __name__ == '__main__':
 
     from scipy import sparse
 
-    R = 10000
-    n = 100000
+    R = 1000
+    n = 10000
     K = 5
 
     Y = sparse.rand(n, R, density=0.001)
@@ -390,11 +389,9 @@ if __name__ == '__main__':
     top_5_list_naive, n_scored_naive, runtime_naive = sparse_inferer.get_top_K_naive(x_u
 , K, True)
 
-    top_5_list_threshold, n_scored_threshold, runtime_thr = sparse_inferer.get_top_K_threshold(x_u
-, K, True)
+    top_5_list_threshold, n_scored_threshold, runtime_thr = sparse_inferer.get_top_K_threshold(x_u , K, True)
 
-    top_5_list_thr_enh, n_scored_thr_enh, runtime_thr_enh = sparse_inferer.get_top_K_threshold_enhanced(x_u
-, K, True)
+    top_5_list_thr_enh, n_scored_thr_enh, runtime_thr_enh = sparse_inferer.get_top_K_threshold_enhanced(x_u, K, True)
 
 
     print 'Tested for SPARSE data of size %s with R of %s' %(n, R)
