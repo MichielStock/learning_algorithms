@@ -49,7 +49,7 @@ class TopKInference():
         """
         self.sorted_lists = self.Y.argsort(0)
 
-    def get_top_k(self, queries, K=1, algorithm='enhanced', profile=False):
+    def get_top_K(self, queries, K=1, algorithm='enhanced', profile=False):
         """
         Returns the top-K objects for a given query
         """
@@ -254,6 +254,7 @@ class TopKInferenceSparse(TopKInference):
         Returns top-K using the threshold algorithm, suited for sparse data
         """
         t0 = time()
+        x_u = x_u.tocoo()
         top_list = []
         n_items_scored = 0
         non_zero_elements_query = [(xi, i) for i, xi in zip(x_u.col, x_u.data)]
@@ -261,6 +262,8 @@ class TopKInferenceSparse(TopKInference):
         depth = 0
         upper_bound = 1e10
         lower_bound = 0
+        if len(non_zero_elements_query) == 0:
+            upper_bound = -1  # break when no x
         while upper_bound > lower_bound:
             upper_bound = 0
             for xi, r in non_zero_elements_query:
@@ -269,11 +272,11 @@ class TopKInferenceSparse(TopKInference):
                     upper_bound += xi * yir
                     if item not in scored:
                         new_scored_item = self.score_item(x_u, item)
-                    if n_items_scored < K or lower_bound < new_scored_item[0]:
+                        scored.add(item)
+                        if n_items_scored < K or lower_bound < new_scored_item[0]:
                             self.update_top_list(top_list, new_scored_item, K,
                                 n_items_scored)
-                    n_items_scored += 1
-                    scored.add(item)
+                        n_items_scored += 1
             if n_items_scored >= K:
                 lower_bound = top_list[0][0]
             depth += 1
@@ -289,6 +292,7 @@ class TopKInferenceSparse(TopKInference):
         Returns top-K using the modified threshold algorithm, suited for sparse data
         """
         t0 = time()
+        x_u = x_u.tocoo()
         top_list = []
         n_items_scored = 0
         # initiate list with rules
@@ -307,6 +311,8 @@ class TopKInferenceSparse(TopKInference):
         upper_bound = sum([-x[0] for x in query_info_list])
         lower_bound = -1e100
         while upper_bound > lower_bound:
+            if len(query_info_list) == 0:
+                break
             partial_score, xi, r, pos = heappop(query_info_list)
             # get item
             item = self.sorted_lists[r][pos][1]
@@ -345,7 +351,7 @@ if __name__ == '__main__':
     # TESTING THE DENSE FRAMEWORK
     # ---------------------------
 
-    R = 100
+    R = 10
     n = 1000000
     K = 5
 
