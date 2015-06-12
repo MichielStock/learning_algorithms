@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: Thu Jun 11 2015
+Last update: Fri Jun 12 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -226,7 +226,12 @@ class TopKInference():
             return top_list
 
 class TopKInferenceSparse(TopKInference):
-
+    """
+    A module collecting different algorithms to find the top-K for a given
+    query and SEP-LR model.
+    This class is designed for dense matrices, for which the elements are
+    positive.
+    """
     def initialize_sorted_lists(self):
         """
         Makes for each latent feature a list of the sorted indices for each item
@@ -239,9 +244,15 @@ class TopKInferenceSparse(TopKInference):
         self.Y = self.Y.tocsr()
 
     def score_item(self, x_u, indice):
+        """
+        Scores an item (sparse vector multiplication)
+        """
         return (self.Y[indice].dot(x_u.T).sum(), indice)
 
     def get_top_K_threshold(self, x_u, K=1, count_calculations=False):
+        """
+        Returns top-K using the threshold algorithm, suited for sparse data
+        """
         t0 = time()
         top_list = []
         n_items_scored = 0
@@ -273,6 +284,58 @@ class TopKInferenceSparse(TopKInference):
         else:
             return top_list
 
+    def get_top_K_threshold_enhanced(self, x_u, K=1, count_calculations=False):
+        """
+        Returns top-K using the modified threshold algorithm, suited for sparse data
+        """
+        t0 = time()
+        top_list = []
+        n_items_scored = 0
+        # initiate list with rules
+        # contains tuples with
+        # (-paritial score, xi, r, position_sorted_list)
+        # note negetive partial score for the heap!
+        query_info_list = [( - xi * self.sorted_lists[r][0][0],
+                        xi,
+                        r,
+                        0)\
+                for r, xi in zip(x_u.col, x_u.data)\
+                if len(self.sorted_lists[r][0]) > 0]
+        heapify(query_info_list)  # turn in a heap in O(R) time
+        scored = set([])
+        #  we start with the upper bound which we update iteratively
+        upper_bound = sum([-x[0] for x in query_info_list])
+        lower_bound = -1e100
+        while upper_bound > lower_bound:
+            partial_score, xi, r, pos = heappop(query_info_list)
+            # get item
+            item = self.sorted_lists[r][pos][1]
+            # score item
+            if item not in scored:
+                new_scored_item = self.score_item(x_u, item)
+                if n_items_scored < K or lower_bound < new_scored_item[0]:
+                    self.update_top_list(top_list, new_scored_item, K,
+                        n_items_scored)
+                n_items_scored += 1
+                scored.add(item)
+            # update lower bound
+            if n_items_scored >= K:
+                lower_bound = top_list[0][0]
+            # update position for this list
+            pos += 1
+            # update the upper bound
+            upper_bound += partial_score  # remove previous partial score (neg)
+            # update the rule list
+            if pos < len(self.sorted_lists[r]):  # if there are still non-zero elements...
+                partial_score = xi * self.sorted_lists[r][pos][0]  # get new partial score
+                upper_bound += partial_score
+                heappush(query_info_list, (-partial_score, xi, r, pos))
+        top_list.sort()
+        t1 = time()
+        if count_calculations:
+            return top_list, n_items_scored, t1 - t0
+        else:
+            return top_list
 
 if __name__ == '__main__':
 
@@ -313,8 +376,8 @@ if __name__ == '__main__':
 
     from scipy import sparse
 
-    R = 1000
-    n = 10000
+    R = 10000
+    n = 100000
     K = 5
 
     Y = sparse.rand(n, R, density=0.001)
@@ -329,3 +392,13 @@ if __name__ == '__main__':
 
     top_5_list_threshold, n_scored_threshold, runtime_thr = sparse_inferer.get_top_K_threshold(x_u
 , K, True)
+
+    top_5_list_thr_enh, n_scored_thr_enh, runtime_thr_enh = sparse_inferer.get_top_K_threshold_enhanced(x_u
+, K, True)
+
+
+    print 'Tested for SPARSE data of size %s with R of %s' %(n, R)
+    print 'Naive: %s calculations in %s seconds' %(n_scored_naive, runtime_naive)
+    print 'Threshold: %s calculations in %s seconds' %(n_scored_threshold, runtime_thr)
+    print 'Enhanced threshold: %s calculations in %s seconds' %(n_scored_thr_enh, runtime_thr_enh)
+    print
