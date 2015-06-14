@@ -138,15 +138,14 @@ class TopKInference():
         Returns top-K using the threshold algorithm
         """
         t0 = time()
-        top_list = []
+        top_list = [(-1e10,) for i in range(K)]
         n_items_scored = 0
         neg_elements_query = set([i for i, el in enumerate(x_u) if el < 0])
         non_zero_elements_query = [i for i, el in enumerate(x_u) if el != 0]
         scored = set([])
         upper_bound = 1
-        lower_bound = 0
         depth = 0
-        while upper_bound > lower_bound:
+        while upper_bound > top_list[0][0]:
             upper_bound = 0
             for r in non_zero_elements_query:
                 if r in neg_elements_query:
@@ -158,14 +157,10 @@ class TopKInference():
                 upper_bound += self.Y[item, r] * x_u[r]
                 if item not in scored:
                     new_scored_item = self.score_item(x_u, item)
-                    if n_items_scored < K or lower_bound < new_scored_item[0]:
-                            self.update_top_list(top_list, new_scored_item, K,
-                                n_items_scored)
+                    if top_list[0][0] < new_scored_item[0]:
+                        heapreplace(top_list, new_scored_item)
                     n_items_scored += 1
                     scored.add(item)
-            # update lower bound
-            if n_items_scored >= K:
-                lower_bound = top_list[0][0]
             depth += 1
         top_list.sort()
         t1 = time()
@@ -179,7 +174,7 @@ class TopKInference():
         Returns top-K using the modified threshold algorithm
         """
         t0 = time()
-        top_list = []
+        top_list = [(-1e10,) for i in range(K)]
         n_items_scored = 0
         # initiate list with rules
         # contains tuples with
@@ -195,22 +190,17 @@ class TopKInference():
         scored = set([])
         #  we start with the upper bound which we update iteratively
         upper_bound = sum([-x[0] for x in query_info_list])
-        lower_bound = -1e100
-        while upper_bound > lower_bound:
+        while upper_bound > top_list[0][0]:
             partial_score, xi, r, pos, pos_action = heappop(query_info_list)
             # get item
             item = self.sorted_lists[pos, r]
             # score item
             if item not in scored:
                 new_scored_item = self.score_item(x_u, item)
-                if n_items_scored < K or lower_bound < new_scored_item[0]:
-                    self.update_top_list(top_list, new_scored_item, K,
-                        n_items_scored)
+                if top_list[0][0] < new_scored_item[0]:
+                    heapreplace(top_list, new_scored_item)
                 n_items_scored += 1
                 scored.add(item)
-            # update lower bound
-            if n_items_scored >= K:
-                lower_bound = top_list[0][0]
             # update position for this list
             pos += pos_action
             # update the upper bound
@@ -256,16 +246,15 @@ class TopKInferenceSparse(TopKInference):
         """
         t0 = time()
         x_u = x_u.tocoo()
-        top_list = []
+        top_list = [(-1e10,) for i in range(K)]
         n_items_scored = 0
         non_zero_elements_query = [(xi, i) for i, xi in zip(x_u.col, x_u.data)]
         scored = set([])
         depth = 0
         upper_bound = 1e10
-        lower_bound = 0
         if len(non_zero_elements_query) == 0:
             upper_bound = -1  # break when no x
-        while upper_bound > lower_bound:
+        while upper_bound > top_list[0][0]:
             upper_bound = 0
             for xi, r in non_zero_elements_query:
                 if len(self.sorted_lists[r]) > depth:
@@ -274,12 +263,9 @@ class TopKInferenceSparse(TopKInference):
                     if item not in scored:
                         new_scored_item = self.score_item(x_u, item)
                         scored.add(item)
-                        if n_items_scored < K or lower_bound < new_scored_item[0]:
-                            self.update_top_list(top_list, new_scored_item, K,
-                                n_items_scored)
+                        if new_scored_item[0] > top_list[0][0]:
+                            heapreplace(top_list, new_scored_item)
                         n_items_scored += 1
-            if n_items_scored >= K:
-                lower_bound = top_list[0][0]
             depth += 1
         top_list.sort()
         t1 = time()
@@ -294,7 +280,7 @@ class TopKInferenceSparse(TopKInference):
         """
         t0 = time()
         x_u = x_u.tocoo()
-        top_list = []
+        top_list = [(-1e10,) for i in range(K)]
         n_items_scored = 0
         # initiate list with rules
         # contains tuples with
@@ -311,7 +297,7 @@ class TopKInferenceSparse(TopKInference):
         #  we start with the upper bound which we update iteratively
         upper_bound = sum([-x[0] for x in query_info_list])
         lower_bound = -1e100
-        while upper_bound > lower_bound:
+        while upper_bound > top_list[0][0]:
             if len(query_info_list) == 0:
                 break
             partial_score, xi, r, pos = heappop(query_info_list)
@@ -320,14 +306,10 @@ class TopKInferenceSparse(TopKInference):
             # score item
             if item not in scored:
                 new_scored_item = self.score_item(x_u, item)
-                if n_items_scored < K or lower_bound < new_scored_item[0]:
-                    self.update_top_list(top_list, new_scored_item, K,
-                        n_items_scored)
+                if new_scored_item[0] > top_list[0][0]:
+                    heapreplace(top_list, new_scored_item)
                 n_items_scored += 1
                 scored.add(item)
-            # update lower bound
-            if n_items_scored >= K:
-                lower_bound = top_list[0][0]
             # update position for this list
             pos += 1
             # update the upper bound
@@ -356,11 +338,11 @@ if __name__ == '__main__':
     n = 1000000
     K = 5
 
-    W = np.random.rand(n, R)
+    W = np.random.rand(n, R)**2
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)
+    x = np.random.randn(R)**2
 
     top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, K, True)
 
