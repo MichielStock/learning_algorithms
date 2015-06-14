@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: Fri Jun 12 2015
+Last update: Sat Jun 13 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -12,6 +12,7 @@ seperable linear models
 from numpy import dot
 from heapq import heapify, heappop, heappush, heapreplace
 from time import time
+from numba import jit
 
 def calculate_partial_score(r, pos, xi, Y, sorted_lists):
     """
@@ -105,12 +106,12 @@ class TopKInference():
         Returns top-K for a given query by naively scoring all the items
         """
         t0 = time()
-        top_list = []
+        top_list = [(-1e10,) for i in range(K)]
         n_items_scored = 0
         for indice in range(self.M):
             new_scored_item = self.score_item(x_u, indice)
-            self.update_top_list(top_list, new_scored_item, K,
-                n_items_scored)
+            if top_list[0][0] < new_scored_item[0]:
+                heapreplace(top_list, new_scored_item)
             n_items_scored += 1
         top_list.sort()
         t1 = time()
@@ -247,7 +248,7 @@ class TopKInferenceSparse(TopKInference):
         """
         Scores an item (sparse vector multiplication)
         """
-        return (self.Y[indice].dot(x_u.T).sum(), indice)
+        return ((self.Y[indice] * x_u.tocsc().T)[0,0], indice)
 
     def get_top_K_threshold(self, x_u, K=1, count_calculations=False):
         """
