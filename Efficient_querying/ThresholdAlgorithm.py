@@ -200,15 +200,15 @@ class ThresholdAlgorithm:
                 upper_bound += self.Y[item][k]*x_u[k]
                 if item in new_items:
                     S = poor_mans_dot(self.Y[item], x_u)
+                    n_items += 1
                     if n_items < N:
                         S_values.append( (S, item) ) #if less than N elements, add to list
-                        n_items += 1
                         lower_bound = min(S_values)[0]
                     elif S > lower_bound:
                         replace_index = S_values.index(min(S_values))
                         S_values[replace_index] = (S, item) 
                         lower_bound = min(S_values)[0]
-                        n_items += 1
+                        
             steps += 1
         self.repairL(steps, reversed)#restore the lists for future use
         self.steps_taken.append(steps)
@@ -233,7 +233,7 @@ if __name__=="__main__":
 	    K = 10
 	    N = 10
 	    nx = 100
-	    ny = 5000
+	    ny = 50000
 	    X = np.random.randn(nx, K).tolist()
 	    Y = np.random.randn(ny, K).tolist()
 	    

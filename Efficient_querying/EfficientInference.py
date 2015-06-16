@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: Sat Jun 13 2015
+Last update: Tue Jun 16 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -58,21 +58,21 @@ class TopKInference():
         runtimes = []
         top_Ks = []
         for x_u in queries:
-            if algorithm=='enhanced':
-                top_list, n_items_scored, time = self.get_top_K_threshold_enhanced(\
+            if algorithm == 'enhanced':
+                top_list, n_items_scored, runtime = self.get_top_K_threshold_enhanced(\
                     x_u, K, count_calculations=True)
-            elif algorithm=='threshold':
-                top_list, n_items_scored, time = self.get_top_K_threshold(\
+            elif algorithm == 'threshold':
+                top_list, n_items_scored, runtime = self.get_top_K_threshold(\
                     x_u, K, count_calculations=True)
-            elif algorithm=='naive':
-                top_list, n_items_scored, time = self.get_top_K_naive(\
+            elif algorithm == 'naive':
+                top_list, n_items_scored, runtime = self.get_top_K_naive(\
                     x_u, K, count_calculations=True)
             else:
                 print 'Unknown algorithm selected...'
                 raise KeyError
             top_Ks.append(top_list)
             if profile:
-                runtimes.append(time)
+                runtimes.append(runtime)
                 n_scores_calc.append(n_items_scored)
         if not profile:
             return top_Ks
@@ -89,17 +89,6 @@ class TopKInference():
         for i, xi in enumerate(x_u):
             result += xi * self.Y[indice, i]
         return (result, indice)
-
-    def update_top_list(self, top_list, new_scored_item, K, n_scored):
-        """
-        Updates the top-K list with a new scored item
-        """
-        if n_scored < K:
-            heappush(top_list, new_scored_item )
-        elif new_scored_item[0] > top_list[0][0]:
-            # case that the new item is better than the worst in the list
-            heapreplace(top_list, new_scored_item)  # replace the worst with the current
-        # returns nothing, processes the list
 
     def get_top_K_naive(self, x_u, K=1, count_calculations=False):
         """
@@ -335,14 +324,14 @@ if __name__ == '__main__':
     # ---------------------------
 
     R = 10
-    n = 1000000
-    K = 5
+    n = 50000
+    K = 10
 
-    W = np.random.rand(n, R)**2
+    W = np.random.rand(n, R)
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)**2
+    x = np.random.randn(R)
 
     top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, K, True)
 
