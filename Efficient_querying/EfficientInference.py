@@ -50,7 +50,7 @@ class TopKInference():
         """
         self.sorted_lists = self.Y.argsort(0)
 
-    def get_top_K(self, queries, K=1, algorithm='enhanced', profile=False):
+    def get_top_K(self, queries, K=1, algorithm='threshold', profile=False):
         """
         Returns the top-K objects for a given query
         """
@@ -66,6 +66,9 @@ class TopKInference():
                     x_u, K, count_calculations=True)
             elif algorithm == 'naive':
                 top_list, n_items_scored, runtime = self.get_top_K_naive(\
+                    x_u, K, count_calculations=True)
+            elif algorithm == 'gradient':
+                top_list, n_items_scored, runtime = self.get_top_K_threshold_gradient(\
                     x_u, K, count_calculations=True)
             else:
                 print 'Unknown algorithm selected...'
