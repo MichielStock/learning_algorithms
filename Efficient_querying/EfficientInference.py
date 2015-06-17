@@ -205,6 +205,54 @@ class TopKInference():
         else:
             return top_list
 
+    def get_top_K_threshold_gradient(self, x_u, K=1, count_calculations=False):
+        """
+        Returns top-K using the modified threshold algorithm
+        """
+        t0 = time()
+        top_list = [(-1e10,) for i in range(K)]
+        n_items_scored = 0
+        # initiate list with rules
+        # contains tuples with
+        # (-paritial score, xi, r)
+        # note negetive partial score for the heap!
+        positions = [self.M - 1 if xi >= 0 else 0 for xi in x_u]
+        postion_updates = [-1 if xi >= 0 else 1 for xi in x_u]
+        query_gradient = [((self.Y[self.sorted_lists[pos + posup, r], r] - self.Y[self.sorted_lists[pos,r], r])*xi,
+                        xi,
+                        r)\
+                for r, (xi, pos, posup) in enumerate(zip(x_u, positions, postion_updates)) if xi != 0]
+        heapify(query_gradient)  # turn in a heap in O(R) time
+        scored = set([])
+        #  we start with the upper bound which we update iteratively
+        upper_bound = sum([self.Y[self.sorted_lists[pos,r], r]*x_u[r] for r, pos in enumerate(positions)])
+        while upper_bound > top_list[0][0]:
+            grad, xi, r = heappop(query_gradient)
+            # get item
+            item = self.sorted_lists[positions[r], r]
+            # score item
+            if item not in scored:
+                new_scored_item = self.score_item(x_u, item)
+                if top_list[0][0] < new_scored_item[0]:
+                    heapreplace(top_list, new_scored_item)
+                n_items_scored += 1
+                scored.add(item)
+            # update position for this list
+            positions[r] +=  postion_updates[r]
+            pos = positions[r]
+            # update the upper bound
+            upper_bound += grad  # update upper bound
+            if positions[r] > 0 and positions[r] < self.M - 1: # check if there is a more extreme value
+                grad = (self.Y[self.sorted_lists[pos + postion_updates[r], r], r] - self.Y[self.sorted_lists[pos,r], r])*xi
+                # update the rule list
+                heappush(query_gradient, (grad, xi, r))
+        top_list.sort()
+        t1 = time()
+        if count_calculations:
+            return top_list, n_items_scored, t1 - t0
+        else:
+            return top_list
+
 class TopKInferenceSparse(TopKInference):
     """
     A module collecting different algorithms to find the top-K for a given
