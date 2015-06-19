@@ -32,6 +32,49 @@ def conditionalposition(pos, xi):
     else:
         return - pos - 1
 
+@jit
+def partial_score_item(x, Y, item, partials, ub, lb, R):
+    r = 0
+    while ub > lb and r < R:
+        ub -= partials[r]
+        ub += x[r] * Y[item,r]
+        r += 1
+    if r < R:
+        return False, r, None
+    else:
+        return True, r, (ub, item)
+
+
+def simple_thr(x, Y, sorted_lists, K):
+    R = x.shape[0]
+    top_K = [(-np.inf, ) for k in range(K)]
+    partials = np.array([x[r]*Y[sorted_lists[0,r],r] for r in range(R)])
+    upper_bound = partials.sum()
+    lower_bound = -np.inf
+    scored = set([])
+    calculated = []
+    pos = 0
+    while lower_bound < upper_bound:
+        for r in range(R):
+            item = sorted_lists[pos,r]
+            pi = x[r] * Y[item, r]
+            if item not in scored:
+                finished, n_calcs, score = partial_score_item(x, Y, item, partials, upper_bound, lower_bound, R)
+                calculated.append(n_calcs)
+                if finished:
+                    heapreplace(top_K, score)
+                scored.add(item)
+            upper_bound -= partials[r]
+            upper_bound += pi
+            partials[r] = pi
+            lower_bound = top_K[0][0]
+        pos +=1
+    return top_K, calculated
+
+
+
+
+
 class TopKInference():
     """
     A module collecting different algorithms to find the top-K for a given
@@ -192,12 +235,12 @@ class TopKInference():
                 scored.add(item)
             # update position for this list
             pos += pos_action
-            # update the upper bound
-            upper_bound += partial_score  # remove previous partial score (neg)
-            partial_score = xi * self.Y[item, r]  # get new partial score
-            upper_bound += partial_score
-            # update the rule list
-            heappush(query_info_list, (-partial_score, xi, r, pos, pos_action))
+            if - pos <= self.M and pos <= 0:
+                # update the upper bound
+                upper_bound += partial_score  # remove previous partial score (neg)
+                partial_score = xi * self.Y[item, r]  # get new partial score
+                upper_bound += partial_score
+                heappush(query_info_list, (-partial_score, xi, r, pos, pos_action))
         top_list.sort()
         t1 = time()
         if count_calculations:
