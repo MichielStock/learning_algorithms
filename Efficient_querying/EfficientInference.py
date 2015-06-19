@@ -56,11 +56,15 @@ def simple_thr(x, Y, sorted_lists, K):
     pos = 0
     while lower_bound < upper_bound:
         for r in range(R):
-            item = sorted_lists[pos,r]
+            xr = x[r]
+            if xr < 0:
+                item = sorted_lists[-(pos+1),r]
+            else:
+                item = sorted_lists[pos,r]
             pi = x[r] * Y[item, r]
             if item not in scored:
                 finished, n_calcs, score = partial_score_item(x, Y, item, partials, upper_bound, lower_bound, R)
-                calculated.append(n_calcs)
+                #calculated.append(n_calcs)
                 if finished:
                     heapreplace(top_K, score)
                 scored.add(item)

@@ -91,7 +91,7 @@ class MaxHeap():
 
     def heapupdate(self, (val, ind)):
         # adds an element if it outperforms the top
-        if val > self._values[0]:
+        if val < self._values[0]:
             self.heapreplace((val, ind))
 
 class MinHeap(MaxHeap):
@@ -108,7 +108,7 @@ class MinHeap(MaxHeap):
 
     def heapupdate(self, (val, ind)):
         # adds an element if it outperforms the top
-        if val < self._values[0]:
+        if val > self._values[0]:
             self.heapreplace((val, ind))
 
 def validate_heap(values, maxheap=True):
