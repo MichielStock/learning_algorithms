@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: Tue Jun 16 2015
+Last update: Mon Jun 23 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -75,10 +75,6 @@ def simple_thr(x, Y, sorted_lists, K):
         pos +=1
     return top_K, calculated
 
-
-
-
-
 class TopKInference():
     """
     A module collecting different algorithms to find the top-K for a given
@@ -97,7 +93,7 @@ class TopKInference():
         """
         self.sorted_lists = self.Y.argsort(0)
 
-    def get_top_K(self, queries, K=1, algorithm='enhanced', profile=False):
+    def get_top_K(self, queries, K=1, algorithm='threshold', profile=False):
         """
         Returns the top-K objects for a given query
         """
@@ -114,6 +110,9 @@ class TopKInference():
             elif algorithm == 'naive':
                 top_list, n_items_scored, runtime = self.get_top_K_naive(\
                     x_u, K, count_calculations=True)
+            elif algorithm == 'partial':
+                top_list, n_items_scored, runtime = self.get_top_K_partial_threshold(\
+                    x_u, K, count_calculations=True)
             else:
                 print 'Unknown algorithm selected...'
                 raise KeyError
@@ -126,16 +125,25 @@ class TopKInference():
         else:
             return top_Ks, n_scores_calc, runtimes
 
-    """
-    def score_item(self, x_u, indice):
-        return (dot(self.Y[indice], x_u), indice)
-    """
-
     def score_item(self, x_u, indice):
         result = 0.0
         for i, xi in enumerate(x_u):
             result += xi * self.Y[indice, i]
         return (result, indice)
+
+    def partial_score_item(self, x_u, indice, upper_bound, lower_bound,
+            partial_scores):
+        # calculates the score when it can exceed the lower bound
+        # but terminates early when ite becomes impossible to improve
+        result = upper_bound + 0
+        r = 0
+        while result > lower_bound:
+            result -= partial_scores[r]
+            result += x_u[r] * self.Y[indice, r]
+            r += 1
+            if r >= self.R:
+                return True, (result, indice), r  # calculation completed
+        return False, (result, indice), r  # calculation did not complete
 
     def get_top_K_naive(self, x_u, K=1, count_calculations=False):
         """
@@ -251,6 +259,49 @@ class TopKInference():
             return top_list, n_items_scored, t1 - t0
         else:
             return top_list
+
+    def get_top_K_partial_threshold(self, x_u, K=1, count_calculations=False):
+        """
+        Returns top-K using the threshold algorithm
+        """
+        t0 = time()
+        top_list = [(-1e10,) for i in range(K)]
+        n_calculations = 0.0
+        neg_elements_query = set([i for i, el in enumerate(x_u) if el < 0])
+        non_zero_elements_query = [i for i, el in enumerate(x_u) if el != 0]
+        scored = set([])
+        upper_bound = 0
+        depth = 0
+        partials = [0] * self.R
+        lower_bound = top_list[0][0]
+        while upper_bound > lower_bound:
+            for r in non_zero_elements_query:
+                if r in neg_elements_query:
+                    item = self.sorted_lists[depth, r]  # negative, so start from
+                            # items with the LOWEST score for this item
+                else:
+                    item = self.sorted_lists[-(depth+1), r]
+                    # get partial score for this item/position
+                pr = self.Y[item, r] * x_u[r]
+                if item not in scored:
+                    completed, new_scored_item, n_calc = self.partial_score_item(x_u,
+                            item, upper_bound, lower_bound, partials)
+                    if completed:
+                        heapreplace(top_list, new_scored_item)
+                        lower_bound = top_list[0][0]
+                    n_calculations += n_calc
+                    scored.add(item)
+                upper_bound -= partials[r]
+                partials[r] = pr
+                upper_bound += pr
+            depth += 1
+        top_list.sort()
+        t1 = time()
+        if count_calculations:
+            return top_list, n_calculations/self.R, t1 - t0
+        else:
+            return top_list
+
 
 class TopKInferenceSparse(TopKInference):
     """
@@ -372,13 +423,13 @@ if __name__ == '__main__':
 
     R = 10
     n = 50000
-    K = 10
+    K = 5
 
     W = np.random.rand(n, R)
 
     inferer = TopKInference(W)
 
-    x = np.random.randn(R)
+    x = np.random.randn(R)**2
 
     top_5_list_naive, n_scored_naive, runtime_naive = inferer.get_top_K_naive(x, K, True)
 
@@ -388,11 +439,14 @@ if __name__ == '__main__':
 
     top_5_list_threshold_enh, n_scored_threshold_enh, runtime_enh = inferer.get_top_K_threshold_enhanced(x, K, True)
 
+    top_5_list_partial, n_scored_partial, runtime_partial = inferer.get_top_K_partial_threshold(x, K, True)
+
 
     print 'Tested for data of size %s with R of %s' %(n, R)
     print 'Naive: %s calculations in %s seconds' %(n_scored_naive, runtime_naive)
     print 'Threshold: %s calculations in %s seconds' %(n_scored_threshold, runtime_thr)
     print 'Enhanced threshold: %s calculations in %s seconds' %(n_scored_threshold_enh, runtime_enh)
+    print 'Partial threshold: %s calculations in %s seconds' %(n_scored_partial, runtime_partial)
     print
 
     # TESTING THE SPARSE FRAMEWORK
@@ -400,7 +454,7 @@ if __name__ == '__main__':
 
     from scipy import sparse
 
-    R = 1000
+    R = 10000
     n = 10000
     K = 5
 

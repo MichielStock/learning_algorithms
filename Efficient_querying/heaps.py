@@ -1,6 +1,6 @@
 """
 Created on Sun Jun 14 2015
-Last update: Fri Jun 19 2015
+Last update: Sat Jun 20 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -71,8 +71,10 @@ class MaxHeap():
     # max heap with FIXED number of values and indices
 
     def __init__(self, values, indices, heapify=True):
+        assert len(values) == len(indices)
         self._values = values
         self._indices = indices
+        self.size = len(values)
         if heapify:
             self.heapify()
 
@@ -93,6 +95,14 @@ class MaxHeap():
         # adds an element if it outperforms the top
         if val < self._values[0]:
             self.heapreplace((val, ind))
+
+    def listify(self, sort=True):
+        # returns heap in a (sorted) list of tuples
+        data_list = [(val, ind) for ind, val in zip(self._indices, self._values)]
+        if sort:
+            data_list.sort()
+        return data_list
+
 
 class MinHeap(MaxHeap):
     # min heap with FIXED number of values and indices
