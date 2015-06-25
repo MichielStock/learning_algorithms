@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: Mon Jun 23 2015
+Last update: Thu Jun 25 2015
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -112,6 +112,7 @@ class TopKInference():
                     x_u, K, count_calculations=True)
             elif algorithm == 'partial':
                 top_list, n_items_scored, runtime = self.get_top_K_partial_threshold(\
+
                     x_u, K, count_calculations=True)
             else:
                 print 'Unknown algorithm selected...'
@@ -142,8 +143,8 @@ class TopKInference():
             result += x_u[r] * self.Y[indice, r]
             r += 1
             if r >= self.R:
-                return True, (result, indice), r  # calculation completed
-        return False, (result, indice), r  # calculation did not complete
+                return (result, indice), r  # calculation completed
+        return (result, indice), r  # calculation did not complete
 
     def get_top_K_naive(self, x_u, K=1, count_calculations=False):
         """
@@ -188,8 +189,9 @@ class TopKInference():
         non_zero_elements_query = [i for i, el in enumerate(x_u) if el != 0]
         scored = set([])
         upper_bound = 1
+        lower_bound = top_list[0][0]
         depth = 0
-        while upper_bound > top_list[0][0]:
+        while upper_bound > lower_bound:
             upper_bound = 0
             for r in non_zero_elements_query:
                 if r in neg_elements_query:
@@ -201,8 +203,9 @@ class TopKInference():
                 upper_bound += self.Y[item, r] * x_u[r]
                 if item not in scored:
                     new_scored_item = self.score_item(x_u, item)
-                    if top_list[0][0] < new_scored_item[0]:
+                    if lower_bound < new_scored_item[0]:
                         heapreplace(top_list, new_scored_item)
+                        lower_bound = top_list[0][0]
                     n_items_scored += 1
                     scored.add(item)
             depth += 1
@@ -227,7 +230,7 @@ class TopKInference():
         query_info_list = [(-calculate_partial_score(r, 0, xi, self.Y, self.sorted_lists),
                         xi,
                         r,
-                        0 if xi < 0 else -1,
+                        0 if xi < 0 else self.M - 1,
                         1 if xi < 0 else -1)\
                 for r, xi in enumerate(x_u) if xi != 0]
         heapify(query_info_list)  # turn in a heap in O(R) time
@@ -247,7 +250,7 @@ class TopKInference():
                 scored.add(item)
             # update position for this list
             pos += pos_action
-            if - pos <= self.M and pos <= 0:
+            if pos < self.M and pos >= 0:
                 # update the upper bound
                 upper_bound += partial_score  # remove previous partial score (neg)
                 partial_score = xi * self.Y[item, r]  # get new partial score
@@ -260,6 +263,7 @@ class TopKInference():
         else:
             return top_list
 
+
     def get_top_K_partial_threshold(self, x_u, K=1, count_calculations=False):
         """
         Returns top-K using the threshold algorithm
@@ -270,30 +274,34 @@ class TopKInference():
         neg_elements_query = set([i for i, el in enumerate(x_u) if el < 0])
         non_zero_elements_query = [i for i, el in enumerate(x_u) if el != 0]
         scored = set([])
-        upper_bound = 0
         depth = 0
         partials = [0] * self.R
+        upper_bound = 1e10
         lower_bound = top_list[0][0]
+        to_score = set([])
         while upper_bound > lower_bound:
+            upper_bound = 0.0
             for r in non_zero_elements_query:
                 if r in neg_elements_query:
                     item = self.sorted_lists[depth, r]  # negative, so start from
-                            # items with the LOWEST score for this item
+                    # items with the LOWEST score for this item
                 else:
                     item = self.sorted_lists[-(depth+1), r]
-                    # get partial score for this item/position
+                to_score.add(item)
+                # get partial score for this item/position
                 pr = self.Y[item, r] * x_u[r]
+                partials[r] = pr
+                upper_bound += pr
+            while len(to_score):
+                item = to_score.pop()
                 if item not in scored:
-                    completed, new_scored_item, n_calc = self.partial_score_item(x_u,
+                    new_scored_item, n_calc = self.partial_score_item(x_u,
                             item, upper_bound, lower_bound, partials)
-                    if completed:
+                    if new_scored_item[0] > lower_bound:
                         heapreplace(top_list, new_scored_item)
                         lower_bound = top_list[0][0]
                     n_calculations += n_calc
                     scored.add(item)
-                upper_bound -= partials[r]
-                partials[r] = pr
-                upper_bound += pr
             depth += 1
         top_list.sort()
         t1 = time()
@@ -301,7 +309,6 @@ class TopKInference():
             return top_list, n_calculations/self.R, t1 - t0
         else:
             return top_list
-
 
 class TopKInferenceSparse(TopKInference):
     """
