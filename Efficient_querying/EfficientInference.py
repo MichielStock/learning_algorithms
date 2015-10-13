@@ -112,7 +112,9 @@ class TopKInference():
                     x_u, K, count_calculations=True)
             elif algorithm == 'partial':
                 top_list, n_items_scored, runtime = self.get_top_K_partial_threshold(\
-
+                    x_u, K, count_calculations=True)
+            elif algorithm == 'profile':
+                top_list, n_items_scored, runtime = self.get_top_K_threshold_profile(\
                     x_u, K, count_calculations=True)
             else:
                 print 'Unknown algorithm selected...'
@@ -175,6 +177,45 @@ class TopKInference():
         # fill in
         if count_calculations:
             return top_list, count_calculations
+        else:
+            return top_list
+
+    def get_top_K_threshold_profile(self, x_u, K=1, count_calculations=False):
+        """
+        Returns top-K using the threshold algorithm
+        for profiling only, keeps lower bound
+        """
+        t0 = time()
+        top_list = [(-1e10,) for i in range(K)]
+        lower_bounds = []
+        neg_elements_query = set([i for i, el in enumerate(x_u) if el < 0])
+        non_zero_elements_query = [i for i, el in enumerate(x_u) if el != 0]
+        scored = set([])
+        upper_bound = 1
+        lower_bound = top_list[0][0]
+        depth = 0
+        while upper_bound > lower_bound:
+            upper_bound = 0
+            for r in non_zero_elements_query:
+                if r in neg_elements_query:
+                    item = self.sorted_lists[depth, r]  # negative, so start from
+                            # items with the LOWEST score for this item
+                else:
+                    item = self.sorted_lists[-(depth+1), r]
+                    # update upper bound
+                upper_bound += self.Y[item, r] * x_u[r]
+                if item not in scored:
+                    new_scored_item = self.score_item(x_u, item)
+                    if lower_bound < new_scored_item[0]:
+                        heapreplace(top_list, new_scored_item)
+                        lower_bound = top_list[0][0]
+                    scored.add(item)
+                    lower_bounds.append(top_list[0][0])
+            depth += 1
+        top_list.sort()
+        t1 = time()
+        if count_calculations:
+            return top_list, lower_bounds, t1 - t0
         else:
             return top_list
 
@@ -326,13 +367,21 @@ class TopKInferenceSparse(TopKInference):
         [self.sorted_lists[self.Y.col[i]].append( (self.Y.data[i], self.Y.row[i])) for i in xrange(self.Y.nnz) ]
         [self.sorted_lists[r].sort() for r in range(self.R)]
         [self.sorted_lists[r].reverse() for r in range(self.R)]
-        self.Y = self.Y.tocsr()
+        self.Ycompr = {i : {} for i in range(self.M)}
+        for val, row, col in zip(self.Y.data, self.Y.row, self.Y.col):
+            self.Ycompr[row][col] = val
+        del self.Y
 
     def score_item(self, x_u, indice):
         """
         Scores an item (sparse vector multiplication)
         """
-        return ((self.Y[indice] * x_u.tocsc().T)[0,0], indice)
+        score = 0.0
+        x_u = x_u.tocoo()
+        for i, v in zip(x_u.row, x_u.data):
+            if self.Ycompr[indice].has_key(i):
+                score += v * self.Ycompr[indice][i]
+        return (score, indice)
 
     def get_top_K_threshold(self, x_u, K=1, count_calculations=False):
         """
@@ -346,12 +395,15 @@ class TopKInferenceSparse(TopKInference):
         scored = set([])
         depth = 0
         upper_bound = 1e10
+        break_loop = False
         if len(non_zero_elements_query) == 0:
             upper_bound = -1  # break when no x
         while upper_bound > top_list[0][0]:
             upper_bound = 0
+            break_loop = True
             for xi, r in non_zero_elements_query:
                 if len(self.sorted_lists[r]) > depth:
+                    break_loop = False
                     yir, item = self.sorted_lists[r][depth]
                     upper_bound += xi * yir
                     if item not in scored:
@@ -361,6 +413,8 @@ class TopKInferenceSparse(TopKInference):
                             heapreplace(top_list, new_scored_item)
                         n_items_scored += 1
             depth += 1
+            if break_loop:
+                break
         top_list.sort()
         t1 = time()
         if count_calculations:
@@ -461,7 +515,7 @@ if __name__ == '__main__':
 
     from scipy import sparse
 
-    R = 10000
+    R = 1000
     n = 10000
     K = 5
 

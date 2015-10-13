@@ -28,6 +28,10 @@ loss_e_insens = lambda y, prediction : T.mean(T.maximum(prediction - y -\
 # hinge loss (-1/1 classification)
 loss_hinge = lambda y, prediction : T.mean(T.maximum(-prediction*y + epsilon, 0))
 
+loss_functions = {'squared' : loss_squared,
+                'logistic' : loss_log,
+                'e-insensitive' : loss_e_insens,
+                'hinge' : loss_hinge}
 
 class RelationalModel:
     def __init__(self, X_u, X_v, y,  Uinit, Vinit, loss=loss_squared,
