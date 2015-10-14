@@ -134,8 +134,5 @@ if __name__ == '__main__':
                  linewidth=0.1)
         axes[1, i].contourf(reg_mesh1, reg_mesh2, performance,
                  cmap='hot')
-        axes[1, i].colorbar()
 
-    #cax = fig.add_axes([0.925, 0.1, 0.02, 0.8])
-    #fig.colorbar(fig, cax=cax)
     fig.show()
