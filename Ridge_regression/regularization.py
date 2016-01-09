@@ -1,6 +1,6 @@
 """
 Created on Tue 13 Oct 2015
-Last update: Wed 14 Oct 2015
+Last update: Sat 9 Jan 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -21,6 +21,16 @@ mse = lambda Y, P : np.mean( (Y -P)**2 )
 
 # macro AUC
 macro_auc = lambda Y, P : auc(Y.ravel() > 0, P.ravel())
+
+def kronecker_ridge(Y, U, s, V, sigma, reg):
+    """
+    Small method to generate parameters for Kroncker kernel ridge regression
+    given de eigenvalue decomposition of the kernels
+    """
+    L = (np.dot(s.reshape((-1, 1)), sigma.reshape((1, -1))) + reg)**-1
+    L *= (U.T).dot(Y).dot(V)
+    A = U.dot(L).dot(V.T)
+    return A 
 
 # instance AUC
 def instance_auc(Y, P):
@@ -45,6 +55,48 @@ def regularization_settinga_kkrr(model, reg_grid, perf_measure=mse):
         Y_loocv = model.predict_LOPO(reg, 'KRLS')
         performance.append(perf_measure(model._Y, Y_loocv))
     return performance
+    
+def regularization_settingb_kkrr((Y, K, G), reg_grid, perf_measure=mse):
+    """
+    Computes the LOOCV performance (setting B) for an array of regularization
+    values for Kronecker kernel ridge regression, give a reg_grid (vector of
+    lambda values) and optionally the performance measure (default is mean
+    squared error)
+    
+    Makes no use of compuational shortcuts, but tries to use as few eigenvalue
+    decompositions as possible (at the possible cost of momory)
+    """ 
+    # store the predicted values for any given lambda
+    holdout_predictions = np.zeros((Y.shape[0], Y.shape[1], len(reg_grid)))
+    sigma, V = np.linalg.eigh(G)  # decompose column kernel
+    for row in range(Y.shape[0]):
+        s, U = np.linalg.eigh(np.delete(np.delete(K, row, axis=0),
+                                                                row, axis=1))
+        for i, reg in enumerate(reg_grid):
+            A = kronecker_ridge(np.delete(Y, row, axis=0), U, s, V, sigma, reg)
+            holdout_predictions[row, :, i] = np.delete(K, row, axis=1)[row].dot(
+                        A).dot(G)
+    performance = [perf_measure(Y, holdout_predictions[:,:,i]) for i,
+                                   _ in enumerate(reg_grid)]
+    return performance
+ 
+def regularization_settingc_kkrr((Y, K, G), reg_grid, perf_measure=mse):
+    """
+    Computes the LOOCV performance (setting C) for an array of regularization
+    values for Kronecker kernel ridge regression, give a reg_grid (vector of
+    lambda values) and optionally the performance measure (default is mean
+    squared error)
+    
+    Makes no use of compuational shortcuts, but tries to use as few eigenvalue
+    decompositions as possible (at the possible cost of momory)
+    """ 
+    # just use the same code as for setting B
+    performance = regularization_settingb_kkrr((Y.T, G, K), reg_grid,
+                                               perf_measure=perf_measure)
+    return performance
+ 
+   
+# Regularization setting D
 
 def regularization_map_2srls(model, reg_grid, method='pairs', perf_measure=mse):
     """
@@ -130,8 +182,8 @@ if __name__ == '__main__':
             axes[1, i].set_title('Holdout both')
             performance = perf_setD_2SRLS
         axes[1, i].contour(reg_mesh1, reg_mesh1, performance,
-                V=np.linspace(performance.min(),performance.max(),num=10), colors='k',
-                 linewidth=0.1)
+                V=np.linspace(performance.min(),performance.max(),num=10),
+                    colors='k', linewidth=0.1)
         axes[1, i].contourf(reg_mesh1, reg_mesh2, performance,
                  cmap='hot')
 
