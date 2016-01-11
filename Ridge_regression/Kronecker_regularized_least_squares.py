@@ -1,6 +1,6 @@
 """
 Created on Tue Feb 17 2015
-Last update: Wed 14 Oct 2015
+Last update: Mon 11 Jan 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -10,10 +10,12 @@ Implementations of the kronecker RLS methods for pairs
 
 import numpy as np
 
+
 class KroneckerRegularizedLeastSquaresGeneral:
     """
     General class for Kronecker-based linear methods
     """
+
     def __init__(self, Y, U, Sigma, V, Delta):
         self._Y = Y
         self._U = U  # eigenvectors first type of objects
@@ -27,8 +29,9 @@ class KroneckerRegularizedLeastSquaresGeneral:
         Perform a Fisher transformantion on the labels for binary data
         such that the positive labels have a value of N/N_+ and the negative of
         -N/N_-. This transformation makes the Ridge regression equivalent with
-        Fisher discriminant analysis. Optionally specify the axis: None (default)
-        for transforming the whole matrix, 0 for the rows, and 1 for the colums.
+        Fisher discriminant analysis. Optionally specify the axis: None
+        (default) for transforming the whole matrix, 0 for the rows, and 1 for
+        the colums.
         """
         assert self._Y.min() == 0 and self._Y.max() == 1  # only for binary data
         self._Y = self._Y.astype(float)
@@ -194,8 +197,8 @@ class KroneckerRegularizedLeastSquaresGeneral:
         elif mse and preds:
             return loov, mse_loocv
 
-    def predict_LOOCV_general_2SRLS(self, reg_1, reg_2, method, preds=True,
-            mse=False):
+    def predict_LOOCV_general_2SRLS(self, reg_1, reg_2, method='pairs',
+                                    preds=True, mse=False):
         """
         Perfroms LOOCV for pairs, rows, columns or both for a given pair
         of regularization paramereters
@@ -391,7 +394,7 @@ if __name__ == "__main__":
 
     Yhat = KRLS.predict(K_u, K_v)
 
-    print np.mean((Y-Yhat)**2)
+    print np.mean((Y - Yhat)**2)
 
     print 'New rows'
 
@@ -489,7 +492,8 @@ if __name__ == "__main__":
     KRLS.train_model((r1,r2))
     both_HO_ther = KRLS.predict_LOOCV_both_2SRLS((r1, r2))[0, 0]
 
-    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:,1:], K_u[1:][:,1:], K_v[1:][:,1:])
+    KRLS_HO = KroneckerRegularizedLeastSquares(Y[1:,1:], K_u[1:][:,1:],
+                                               K_v[1:][:,1:])
     KRLS_HO.train_model((r1, r2), '2SRLS')
     both_HO_exp = KRLS_HO.predict(K_u[0, 1:], K_v[0, 1:])
     print 'both: must be the same:', np.allclose(both_HO_ther, both_HO_exp)

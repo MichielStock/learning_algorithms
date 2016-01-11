@@ -11,16 +11,16 @@ pairwise problems
 
 from Kronecker_regularized_least_squares import KroneckerRegularizedLeastSquares
 import numpy as np
-from sklearn.metrics import auc
+from sklearn.metrics import roc_auc_score as auc
 
 # some functions for measuring performance on labels
 # --------------------------------------------------
 
 # mean squared error
-mse = lambda Y, P : np.mean( (Y -P)**2 )
+mse = lambda Y, P : np.mean( (Y - P)**2 )
 
 # macro AUC
-macro_auc = lambda Y, P : auc(Y.ravel() > 0, P.ravel())
+macro_auc = lambda Y, P : auc(np.ravel(Y) > 0, np.ravel(P))
 
 def kronecker_ridge(Y, U, s, V, sigma, reg):
     """
@@ -42,6 +42,8 @@ def micro_auc(Y, P):
     n, m = Y.shape
     return np.mean([auc(Y[:,i] > 0, P[:,i]) for i in range(m) if Y[:,i].var()])
 
+# some functions for studying effect of regularization on performance
+# -------------------------------------------------------------------
 
 def regularization_settinga_kkrr(model, reg_grid, perf_measure=mse):
     """
@@ -79,7 +81,7 @@ def regularization_settingb_kkrr((Y, K, G), reg_grid, perf_measure=mse):
     performance = [perf_measure(Y, holdout_predictions[:,:,i]) for i,
                                    _ in enumerate(reg_grid)]
     return performance
- 
+     
 def regularization_settingc_kkrr((Y, K, G), reg_grid, perf_measure=mse):
     """
     Computes the LOOCV performance (setting C) for an array of regularization
@@ -94,9 +96,68 @@ def regularization_settingc_kkrr((Y, K, G), reg_grid, perf_measure=mse):
     performance = regularization_settingb_kkrr((Y.T, G, K), reg_grid,
                                                perf_measure=perf_measure)
     return performance
- 
-   
-# Regularization setting D
+    
+def regularization_settingd_kkrr((Y, K, G), reg_grid, perf_measure=mse):
+    """
+    Computes the LOOCV performance (setting D) for an array of regularization
+    values for Kronecker kernel ridge regression, give a reg_grid (vector of
+    lambda values) and optionally the performance measure (default is mean
+    squared error)
+    
+    Makes no use of compuational shortcuts, but tries to use as few eigenvalue
+    decompositions as possible (at the possible cost of momory)
+    """ 
+    # just use the same code as for setting B
+    holdout_predictions = np.zeros((Y.shape[0], Y.shape[1], len(reg_grid)))
+    sigma, V = np.linalg.eigh(G)  # decompose column kernel
+    for row in range(Y.shape[0]):
+        s, U = np.linalg.eigh(np.delete(np.delete(K, row, axis=0),
+                                                                row, axis=1))
+        for col in range(Y.shape[1]):
+            sigma, V = np.linalg.eigh(np.delete(np.delete(G, col, axis=0),
+                                                                col, axis=1))
+            for i, reg in enumerate(reg_grid):
+                # remove row and col from data
+                Yreduced = np.delete(np.delete(Y, row, axis=0), col, axis=1)
+                A = kronecker_ridge(Yreduced, U, s, V, sigma, reg)
+                holdout_predictions[row, col, i] = np.delete(K, row,
+                        axis=1)[row].dot(A).dot(np.delete(G, col,
+                        axis=0)[:,col])
+    performance = [perf_measure(Y, holdout_predictions[:,:,i]) for i,
+                                   _ in enumerate(reg_grid)]
+    return performance
+    
+def regularization_map_kkrr((Y, K, G), reg_grid, method='pairs', perf_measure=mse):
+    """
+    Computes the LOO performance for a Kronekcer kernel ridge regression, given
+    a cross validation setting:
+        - pairs (default)
+        - rows
+        - columns
+        - both
+    and a given performance measure.
+    
+    NOTE: only effcient in time and memory for setting A!!
+    """
+    if method == 'pairs':    
+        # this should be fast
+        model = KroneckerRegularizedLeastSquares(Y, K, G)
+        performance = regularization_settinga_kkrr(model, reg_grid,
+                                                           perf_measure)
+    else:
+        if method == 'rows':
+            performance = regularization_settingb_kkrr((Y, K, G), reg_grid,
+                                                       perf_measure)
+        elif method == 'columns':
+            performance = regularization_settingc_kkrr((Y, K, G), reg_grid,
+                                                       perf_measure)
+        elif method == 'both':
+            performance = regularization_settingd_kkrr((Y, K, G), reg_grid,
+                                                       perf_measure)
+        else:
+            print('No valid cross validation method!')
+            raise KeyError
+    return performance
 
 def regularization_map_2srls(model, reg_grid, method='pairs', perf_measure=mse):
     """
@@ -121,8 +182,9 @@ def regularization_map_2srls(model, reg_grid, method='pairs', perf_measure=mse):
 
 if __name__ == '__main__':
 
-    # Test on predicting pixels of a picture
-    # features are the location of a picture, with a radial basis kernel
+    """
+    Small example, can we predict missing pixels in an image?
+    """
 
     from skimage.data import coffee
     from skimage.color import rgb2gray
