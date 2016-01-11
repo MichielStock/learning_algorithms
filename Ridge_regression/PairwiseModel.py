@@ -85,7 +85,7 @@ class PairwiseModel:
         """
         if k is None:
             # use training instances
-            predictions = (self._U * self._Sigma).dot(U.T).dot(self._A)
+            predictions = (self._U * self._Sigma).dot(self._U.T).dot(self._A)
         else:
             # use given instances
             predictions = k.dot(self._A)
