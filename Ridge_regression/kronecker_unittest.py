@@ -48,7 +48,7 @@ class TestKroneckerRidge(unittest.TestCase):
         """
         Test if prediction is correct
         """
-        Y, K, G, reg = make_problem()
+        Y, K, G, reg = make_problem(100, 100)
         N = np.prod(Y.shape)
         model = KroneckerKernelRidgeRegression(Y, K, G)
         model.train_model(regularization=reg)
@@ -60,7 +60,9 @@ class TestKroneckerRidge(unittest.TestCase):
         
     def test_imputation_holdout(self):
         """
-        Test for setting A
+        Test for setting A, based on the idea that if you replace Yij with 
+        the predicted imputated value, this should not change the predicted
+        value for Yhatij
         """
         Y, K, G, reg = make_problem(30, 20)
         model = KroneckerKernelRidgeRegression(Y, K, G)
@@ -71,10 +73,11 @@ class TestKroneckerRidge(unittest.TestCase):
                 Yhelp = Y.copy()
                 Yhelp[i,j] = Yhoo[i,j]  # replacing this should not matter
                 model._Y = Yhelp
-                model.train_model(reg)
+                model.train_model(reg)  # train again, with new Y
                 pred_ij = model.predict()[i,j]
-                print(pred_ij, Yhoo[i,j], Y[i,j])
-                tests[i,j] = np.allclose(pred_ij, Yhoo[i,j])
+                tests[i,j] = np.allclose(pred_ij, Yhoo[i,j])  # should close!
+                # uncomment to see in detail
+                print(Yhoo[i,j], pred_ij, Y[i,j])
         self.assertTrue(np.all(tests))
                 
 if __name__ == '__main__':
