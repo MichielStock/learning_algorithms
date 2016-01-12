@@ -10,10 +10,28 @@ Kronecker Kernel Ridge regression, with the shortcuts
 """
 
 import numpy as np
+import numba
 from PairwiseModel import PairwiseModel
 
+def kronecker_ridge(Y, U, Sigma, V, S, reg):
+    """
+    Small method to generate parameters for Kroncker kernel ridge regression
+    given de eigenvalue decomposition of the kernels
+    """
+    L = (np.dot(Sigma.reshape((-1, 1)), S.reshape((1, -1))) + reg)**-1
+    L *= (U.T).dot(Y).dot(V)
+    A = U.dot(L).dot(V.T)
+    return A
 
-def loocv_setA(Y, U, Sigma, V, S, regularization):
+def kernel_split(K, indice):
+    """
+    Removes an indice (row and column) of a kernel matrix and returns both
+    """
+    Ksubset = np.delete(np.delete(K, indice, axis=1), indice, axis=0)
+    ktest = np.delete(K[:, indice], indice, axis=0)
+    return Ksubset, ktest
+
+def loocv_setA(Y, U, Sigma, V, S, regularization, Yhoo=None):
     """
     Leave-one-pair out for Kronecker kernel ridge regression setting A
     """
@@ -23,6 +41,26 @@ def loocv_setA(Y, U, Sigma, V, S, regularization):
     L = np.dot((U)**2, E).dot(V.T**2)  # leverages, structured as a matrix
     return (Yhat - Y * L) / (1 - L)
 
+def loocv_setB(Y, U, Sigma, V, S, regularization, Yhoo):
+    """
+    Leave-one-pair out for Kronecker kernel ridge regression setting B
+    """
+    G = (V * S).dot(V.T)
+    K = (U * Sigma).dot(U.T)
+    for indice in range(Y.shape[0]): # iterate over rows
+        Ksubset, ktest = kernel_split(K, indice)
+        Sigma_new, U_new = np.linalg.eigh(Ksubset)
+        A = kronecker_ridge(np.delete(Y, indice, axis=0), U_new, Sigma_new, V,
+                                                    S, regularization)
+        Yhoo[indice, :] = ktest.dot(A).dot(G)
+    return Yhoo
+    
+def loocv_setC(Y, U, Sigma, V, S, regularization, Yhoo):
+    """
+    Leave-one-pair out for Kronecker kernel ridge regression setting C
+    """
+    Yhoo[:] = loocv_setB(Y.T, V, S, U, Sigma, regularization, Yhoo.T).T
+    return Yhoo   
 
 class KroneckerKernelRidgeRegression(PairwiseModel):
     """
@@ -57,15 +95,35 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         """
         return loocv_setA(self._Y, self._U, self._Sigma, self._V, self._S,
                                                           regularization)
+ 
+    def lo_setting_B(self, regularization=1):
+        """
+        Imputation for setting B
+        """
+        return loocv_setB(self._Y, self._U, self._Sigma, self._V, self._S,
+                                      regularization, np.zeros_like(self._Y))
+
+    def lo_setting_C(self, regularization=1):
+        """
+        Imputation for setting B
+        """
+        return loocv_setC(self._Y, self._U, self._Sigma, self._V, self._S,
+                                      regularization, np.zeros_like(self._Y))                                                        
 
 if __name__ == '__main__':
 
-    Y = np.random.randn(10, 20)
-    X1 = np.random.randn(10, 10)
-    X2 = np.random.rand(20, 20)
+    nrow = 110
+    ncol = 55
+    
+    Y = np.random.randn(nrow, ncol)
+    X1 = np.random.randn(nrow, nrow)
+    X2 = np.random.rand(ncol, ncol)
 
     K = X1.dot(X1.T)
     G = X2.dot(X2.T)
+    
+    Sigma, U = np.linalg.eigh(K)
+    S, V = np.linalg.eigh(G)
 
     model = KroneckerKernelRidgeRegression(Y, K, G)
     model.train_model(regularization=100)
