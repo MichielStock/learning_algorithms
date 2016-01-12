@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jan 12 16:23:13 2016
+Created on Tue Feb 17 2015
+Last update: Tue Feb 17 2015
 
-@author: michielstock
+@author: Michiel Stock
+michielfmstock@gmail.com
+
+Implementations of the kronecker RLS methods for pairs
 """
 
 import unittest
@@ -10,17 +14,19 @@ from KroneckerRidge import KroneckerKernelRidgeRegression, loocv_setA
 import numpy as np
 
 
-def make_problem():
+def make_problem(nrow=40, ncol=25):
     """
     Makes a pairwise problem
     """
-    Y = np.random.randn(10, 20)
-    X1 = np.random.randn(10, 10)
-    X2 = np.random.rand(20, 20)
+    Y = np.random.randn(nrow, ncol)
+    X1 = np.random.randn(nrow, nrow)
+    X2 = np.random.rand(ncol, ncol)
     K = X1.dot(X1.T)
     G = X2.dot(X2.T)
     reg = np.random.randint(1, 100)
     return Y, K, G, reg
+    
+
 
 
 class TestKroneckerRidge(unittest.TestCase):
@@ -33,7 +39,6 @@ class TestKroneckerRidge(unittest.TestCase):
         using KroneckerKernelRidgeRegression.predict() using no arguments
         should return Yhat
         """
-        print 'Testing prediction hat'
         Y, K, G, reg = make_problem()
         model = KroneckerKernelRidgeRegression(Y, K, G)
         model.train_model(regularization=reg)
@@ -43,8 +48,7 @@ class TestKroneckerRidge(unittest.TestCase):
         """
         Test if prediction is correct
         """
-        print 'testing prediction'
-        Y, K, G, reg = make_problem()   
+        Y, K, G, reg = make_problem()
         N = np.prod(Y.shape)
         model = KroneckerKernelRidgeRegression(Y, K, G)
         model.train_model(regularization=reg)
@@ -54,6 +58,24 @@ class TestKroneckerRidge(unittest.TestCase):
                                 reg)).dot(np.reshape(Y, -1, order='F'))
         self.assertTrue(np.allclose(P, Ptrue))
         
+    def test_imputation_holdout(self):
+        """
+        Test for setting A
+        """
+        Y, K, G, reg = make_problem(30, 20)
+        model = KroneckerKernelRidgeRegression(Y, K, G)
+        Yhoo = model.lo_setting_A(reg)
+        tests = np.zeros(Y.shape, dtype=bool)
+        for i in range(Y.shape[0]):
+            for j in range(Y.shape[1]):
+                Yhelp = Y.copy()
+                Yhelp[i,j] = Yhoo[i,j]  # replacing this should not matter
+                model._Y = Yhelp
+                model.train_model(reg)
+                pred_ij = model.predict()[i,j]
+                print(pred_ij, Yhoo[i,j], Y[i,j])
+                tests[i,j] = np.allclose(pred_ij, Yhoo[i,j])
+        self.assertTrue(np.all(tests))
                 
 if __name__ == '__main__':
     unittest.main()

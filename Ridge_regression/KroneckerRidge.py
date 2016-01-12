@@ -50,6 +50,13 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
                                                         regularization)**-1
         # make parameters
         self._A = self._parameters_from_leverages(L)
+        
+    def lo_setting_A(self, regularization=1):
+        """
+        Imputation for setting A
+        """
+        return loocv_setA(self._Y, self._U, self._Sigma, self._V, self._S,
+                                                          regularization)
 
 if __name__ == '__main__':
 
