@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 11 Jan 2016
-Last update: -
+Last update: Tue 12 Jan 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -12,20 +12,18 @@ Kronecker Kernel Ridge regression, with the shortcuts
 import numpy as np
 from PairwiseModel import PairwiseModel
 
+
 def loocv_setA(Y, U, Sigma, V, S, regularization):
     """
     Leave-one-pair out for Kronecker kernel ridge regression setting A
     """
     E = np.dot(Sigma.reshape((-1, 1)), S.reshape((1, -1)))
-    E /= (E + regularization)  # filtered eigenvalues
-    L = np.zeros_like(E)
-    # do with for loop in numba
-    for i in range(L.shape[0]):
-        for j in range(L.shape[1]):
-            L[i,j] = ... # complete the code
-    
-    
-    
+    E /= (E + regularization)  # filtered eigenvalues of hat matrix
+    Yhat = (U).dot(U.T.dot(Y).dot(V) * E).dot(V.T)
+    L = np.dot((U)**2, E).dot(V.T**2)  # leverages, structured as a matrix
+    return (Yhat - Y * L) / (1 - L)
+
+
 class KroneckerKernelRidgeRegression(PairwiseModel):
     """
     Kronecker kernel ridge regression, with the corresponding shortcuts
