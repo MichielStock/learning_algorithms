@@ -52,17 +52,16 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
     """
     Kronecker kernel ridge regression, with the corresponding shortcuts
     """
-    def train_model(self, regularization=(1,1), return_Yhat=False):
+    def train_model(self, regularization=(1, 1), return_Yhat=False):
         """
         Trains an Kronecker kernel ridge regression model
         """
         reg_1, reg_2 = regularization
-        L = (np.dot(self._Sigma.reshape((-1, 1)) + reg_1,
-                                self._S.reshape((1, -1)) + reg_2))**-1
-        # make parameters
-        self._A = self._parameters_from_leverages(L)
+        self._A = (self._U / (self._Sigma + reg_1)).dot(
+                    self._U.T).dot(self._Y).dot(self._V / (self._S +
+                    reg_2)).dot(self._V.T)
 
-    def lo_setting_A(self, regularization=(1,1)):
+    def lo_setting_A(self, regularization=(1, 1)):
         """
         Imputation for setting A
         """
@@ -71,7 +70,7 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         return loocv_setA(self._Y, H_k, H_g)
 
-    def lo_setting_B(self, regularization=(1,1)):
+    def lo_setting_B(self, regularization=(1, 1)):
         """
         Imputation for setting B
         """
@@ -80,25 +79,23 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         return loocv_setB(self._Y, H_k, H_g)
 
-
-    def lo_setting_C(self, regularization=(1,1)):
+    def lo_setting_C(self, regularization=(1, 1)):
         """
         Imputation for setting C
         """
         reg_1, reg_2 = regularization
         H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
-        return loocv_setB(self._Y, H_k, H_g)
+        return loocv_setC(self._Y, H_k, H_g)
 
-
-    def lo_setting_D(self, regularization=(1,1)):
+    def lo_setting_D(self, regularization=(1, 1)):
         """
         Imputation for setting D
         """
         reg_1, reg_2 = regularization
         H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
-        return loocv_setB(self._Y, H_k, H_g)
+        return loocv_setD(self._Y, H_k, H_g)
 
 
 if __name__ == '__main__':
@@ -125,3 +122,11 @@ if __name__ == '__main__':
     # test prediction function
     print('These values should be the same:')
     print(np.allclose(model.predict(), model.predict(K, G)))
+    
+    # test for setting B
+    
+    model2 = TwoStepRidgeRegression(Y[1:], K[1:,:][:,1:], G)
+    model2.train_model(regularization=(10, 0.1))
+    Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1))
+    Hoocalc = model.lo_setting_B((10, 0.1))[[0]]
+    print np.allclose(Hoopreds, Hoocalc)
