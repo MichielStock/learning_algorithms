@@ -96,6 +96,7 @@ class TestKroneckerRidge(unittest.TestCase):
             print(Yhoo[i, :], pred_i, Y[i, :])
         correct = np.all(tests)
         self.assertTrue(correct)
+
         
 if __name__ == '__main__':
     unittest.main()

@@ -54,13 +54,31 @@ def loocv_setB(Y, U, Sigma, V, S, regularization, Yhoo):
                                                     S, regularization)
         Yhoo[indice, :] = ktest.dot(A).dot(G)
     return Yhoo
-    
+
 def loocv_setC(Y, U, Sigma, V, S, regularization, Yhoo):
     """
     Leave-one-pair out for Kronecker kernel ridge regression setting C
     """
     Yhoo[:] = loocv_setB(Y.T, V, S, U, Sigma, regularization, Yhoo.T).T
-    return Yhoo   
+    return Yhoo
+
+def loocv_setD(Y, U, Sigma, V, S, regularization, Yhoo):
+    """
+    Leave-one-pair out for Kronecker kernel ridge regression setting D
+    """
+    G = (V * S).dot(V.T)
+    K = (U * Sigma).dot(U.T)
+    for i in range(Y.shape[0]): # iterate over rows
+        Ksubset, ktest = kernel_split(K, i)
+        Sigma_new, U_new = np.linalg.eigh(Ksubset)
+        for j in range(Y.shape[1]):  # iterate over columns
+            Gsubset, gtest = kernel_split(G, j)
+            S_new, V_new = np.linalg.eigh(Gsubset)
+            Y_new = np.delete(np.delete(Y, i, axis=0), j, axis=1)
+            A = kronecker_ridge(Y_new, U_new, Sigma_new, V_new, S_new,
+                                    regularization)
+            Yhoo[i, j] = ktest.dot(A).dot(gtest.T)
+    return Yhoo
 
 class KroneckerKernelRidgeRegression(PairwiseModel):
     """
@@ -88,40 +106,50 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
                                                         regularization)**-1
         # make parameters
         self._A = self._parameters_from_leverages(L)
-        
+
     def lo_setting_A(self, regularization=1):
         """
         Imputation for setting A
         """
         return loocv_setA(self._Y, self._U, self._Sigma, self._V, self._S,
                                                           regularization)
- 
+
     def lo_setting_B(self, regularization=1):
         """
         Imputation for setting B
+        Uses a for-loop so is slow
         """
         return loocv_setB(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
 
     def lo_setting_C(self, regularization=1):
         """
-        Imputation for setting B
+        Imputation for setting C
+        Uses a for-loop so is slow
         """
         return loocv_setC(self._Y, self._U, self._Sigma, self._V, self._S,
-                                      regularization, np.zeros_like(self._Y))                                                        
+                                      regularization, np.zeros_like(self._Y))
+    
+    def lo_setting_C(self, regularization=1):
+        """
+        Imputation for setting D
+        Uses two for-loops so is VERY slow        
+        """
+        return loocv_setD(self._Y, self._U, self._Sigma, self._V, self._S,
+                                      regularization, np.zeros_like(self._Y))
 
 if __name__ == '__main__':
 
     nrow = 110
     ncol = 55
-    
+
     Y = np.random.randn(nrow, ncol)
     X1 = np.random.randn(nrow, nrow)
     X2 = np.random.rand(ncol, ncol)
 
     K = X1.dot(X1.T)
     G = X2.dot(X2.T)
-    
+
     Sigma, U = np.linalg.eigh(K)
     S, V = np.linalg.eigh(G)
 
