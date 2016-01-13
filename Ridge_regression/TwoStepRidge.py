@@ -10,8 +10,11 @@ Implementations of the two-step kernel ridge regression method
 
 import numpy as np
 from KroneckerRidge import KroneckerKernelRidgeRegression
-import numba
+from PairwiseModel import *
 
+
+# CROSS VALIDATION
+# ----------------
 
 def loocv_setA(Y, H_k, H_g):
     """
@@ -30,7 +33,6 @@ def loocv_setB(Y, H_k, H_g):
     return (H_k - np.diag(np.diag(H_k))).dot(Y).dot(H_g) / (1 -
             np.diag(H_k).reshape((-1, 1)))
 
-
 def loocv_setC(Y, H_k, H_g):
     """
     Leave-one-pair out for two-step ridge regression setting C
@@ -47,6 +49,20 @@ def loocv_setD(Y, H_k, H_g):
             np.diag(np.diag(H_g))) / (1 -
             (np.diag(H_k).reshape((-1, 1))).dot(np.diag(H_g).reshape((1, -1))))
 
+def regularization_map_2sridge(Y, Sigma, U, S, V, H_k, H_g, loocv_function,
+                               Yhoo, grid, performance, performance_matrix):
+    for i, reg_1 in enumerate(grid):
+        H_k[:] = (U * Sigma / (Sigma + reg_1)).dot(U.T)
+        for j, reg_2 in enumerate(grid):
+            H_g[:] = (V * S / (S + reg_2)).dot(V.T)
+            # calculate holdout values
+            Yhoo[:] = loocv_function(Y, H_k, H_g)
+            performance_matrix[i, j] = performance(Y, Yhoo)
+    return performance_matrix
+
+
+# MAIN CLASS
+# ----------
 
 class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
     """
@@ -68,6 +84,7 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         reg_1, reg_2 = regularization
         H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        self.regularization = regularization
         return loocv_setA(self._Y, H_k, H_g)
 
     def lo_setting_B(self, regularization=(1, 1)):
@@ -97,6 +114,63 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         return loocv_setD(self._Y, H_k, H_g)
 
+    def loocv_grid_search(self, grid, setting='A', performance=rmse):
+        n_steps = len(grid)
+        # initialize matrices
+        performance_grid = np.zeros((n_steps, n_steps))
+        Yhoo = np.zeros_like(self._Y)
+        H_k = np.zeros((self.nrows, self.nrows))
+        H_g = np.zeros((self.ncols, self.ncols))
+        # choose setting
+        if setting == 'A':
+            loocv_function = loocv_setA
+        elif setting == 'B':
+            loocv_function = loocv_setB
+        elif setting == 'C':
+            loocv_function = loocv_setC
+        elif setting == 'D':
+            loocv_function = loocv_setD
+        for i, reg_1 in enumerate(grid):
+            H_k[:] = (U * Sigma / (Sigma + reg_1)).dot(U.T)
+            for j, reg_2 in enumerate(grid):
+                H_g[:] = (V * S / (S + reg_2)).dot(V.T)
+                # calculate holdout values
+                Yhoo[:] = loocv_function(Y, H_k, H_g)
+                performance_grid[i, j] = performance(Y, Yhoo)
+        return performance_grid
+        
+    def tune_loocv(self, grid, setting='A', performance=rmse):
+        """
+        Tunes a model for a certain setting by grid search.
+        Gives the model with the LOWEST value for performance metric
+        """
+        # initialize matrices
+        best_perf = np.inf
+        best_regs = (0, 0)
+        Yhoo = np.zeros_like(self._Y)
+        H_k = np.zeros((self.nrows, self.nrows))
+        H_g = np.zeros((self.ncols, self.ncols))
+        # choose setting
+        if setting == 'A':
+            loocv_function = loocv_setA
+        elif setting == 'B':
+            loocv_function = loocv_setB
+        elif setting == 'C':
+            loocv_function = loocv_setC
+        elif setting == 'D':
+            loocv_function = loocv_setD
+        for i, reg_1 in enumerate(grid):
+            H_k[:] = (U * Sigma / (Sigma + reg_1)).dot(U.T)
+            for j, reg_2 in enumerate(grid):
+                H_g[:] = (V * S / (S + reg_2)).dot(V.T)
+                # calculate holdout values
+                Yhoo[:] = loocv_function(Y, H_k, H_g)
+                performance_ij = performance(Y, Yhoo)
+                if performance_ij < best_perf:
+                    best_regs = (reg_1, reg_2)
+                    best_perf = performance_ij
+        self.train_model(best_regs)
+        print('Best regularization {} gives {}'.format(best_regs, best_perf))
 
 if __name__ == '__main__':
 
@@ -122,11 +196,12 @@ if __name__ == '__main__':
     # test prediction function
     print('These values should be the same:')
     print(np.allclose(model.predict(), model.predict(K, G)))
-    
+
     # test for setting B
-    
+
     model2 = TwoStepRidgeRegression(Y[1:], K[1:,:][:,1:], G)
     model2.train_model(regularization=(10, 0.1))
     Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1))
     Hoocalc = model.lo_setting_B((10, 0.1))[[0]]
     print np.allclose(Hoopreds, Hoocalc)
+

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 11 Jan 2016
-Last update: -
+Last update: Wed 13 Jan 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -10,6 +10,28 @@ General class for pairwise model
 """
 
 import numpy as np
+from sklearn.metrics import roc_auc_score as auc
+
+# PERFORMANCE MEASURES
+# --------------------
+
+rmse = lambda Y, P : np.mean((Y - P)**2)**0.5
+
+# mean squared error
+mse = lambda Y, P : np.mean( (Y - P)**2 )
+
+# macro AUC
+macro_auc = lambda Y, P : auc(np.ravel(Y) > 0, np.ravel(P))
+
+# instance AUC
+def instance_auc(Y, P):
+    n, m = Y.shape
+    return np.mean([auc(Y[i] > 0, P[i]) for i in range(n) if Y[i].var()])
+
+# micro AUC
+def micro_auc(Y, P):
+    n, m = Y.shape
+    return np.mean([auc(Y[:,i] > 0, P[:,i]) for i in range(m) if Y[:,i].var()])
 
 
 class PairwiseModel:

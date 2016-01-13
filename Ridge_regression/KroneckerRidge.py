@@ -10,7 +10,7 @@ Kronecker Kernel Ridge regression, with the shortcuts
 """
 
 import numpy as np
-from PairwiseModel import PairwiseModel
+from PairwiseModel import *
 
 
 def kronecker_ridge(Y, U, Sigma, V, S, reg):
@@ -102,6 +102,7 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         self._V = V
         self._Sigma = Sigma
         self._S = S
+        self.nrows, self.ncols = Y.shape
 
     def train_model(self, regularization=1, return_Yhat=False):
         """
@@ -112,6 +113,7 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
                                                         regularization)**-1
         # make parameters
         self._A = self._parameters_from_leverages(L)
+        self.regularization = regularization
 
     def lo_setting_A(self, regularization=1):
         """
