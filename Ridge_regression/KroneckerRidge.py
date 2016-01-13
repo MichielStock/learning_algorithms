@@ -10,8 +10,8 @@ Kronecker Kernel Ridge regression, with the shortcuts
 """
 
 import numpy as np
-import numba
 from PairwiseModel import PairwiseModel
+
 
 def kronecker_ridge(Y, U, Sigma, V, S, reg):
     """
@@ -23,6 +23,7 @@ def kronecker_ridge(Y, U, Sigma, V, S, reg):
     A = U.dot(L).dot(V.T)
     return A
 
+
 def kernel_split(K, indice):
     """
     Removes an indice (row and column) of a kernel matrix and returns both
@@ -30,6 +31,7 @@ def kernel_split(K, indice):
     Ksubset = np.delete(np.delete(K, indice, axis=1), indice, axis=0)
     ktest = np.delete(K[:, indice], indice, axis=0)
     return Ksubset, ktest
+
 
 def loocv_setA(Y, U, Sigma, V, S, regularization, Yhoo=None):
     """
@@ -41,19 +43,21 @@ def loocv_setA(Y, U, Sigma, V, S, regularization, Yhoo=None):
     L = np.dot((U)**2, E).dot(V.T**2)  # leverages, structured as a matrix
     return (Yhat - Y * L) / (1 - L)
 
+
 def loocv_setB(Y, U, Sigma, V, S, regularization, Yhoo):
     """
     Leave-one-pair out for Kronecker kernel ridge regression setting B
     """
     G = (V * S).dot(V.T)
     K = (U * Sigma).dot(U.T)
-    for indice in range(Y.shape[0]): # iterate over rows
+    for indice in range(Y.shape[0]):  # iterate over rows
         Ksubset, ktest = kernel_split(K, indice)
         Sigma_new, U_new = np.linalg.eigh(Ksubset)
         A = kronecker_ridge(np.delete(Y, indice, axis=0), U_new, Sigma_new, V,
                                                     S, regularization)
         Yhoo[indice, :] = ktest.dot(A).dot(G)
     return Yhoo
+
 
 def loocv_setC(Y, U, Sigma, V, S, regularization, Yhoo):
     """
@@ -62,13 +66,14 @@ def loocv_setC(Y, U, Sigma, V, S, regularization, Yhoo):
     Yhoo[:] = loocv_setB(Y.T, V, S, U, Sigma, regularization, Yhoo.T).T
     return Yhoo
 
+
 def loocv_setD(Y, U, Sigma, V, S, regularization, Yhoo):
     """
     Leave-one-pair out for Kronecker kernel ridge regression setting D
     """
     G = (V * S).dot(V.T)
     K = (U * Sigma).dot(U.T)
-    for i in range(Y.shape[0]): # iterate over rows
+    for i in range(Y.shape[0]):  # iterate over rows
         Ksubset, ktest = kernel_split(K, i)
         Sigma_new, U_new = np.linalg.eigh(Ksubset)
         for j in range(Y.shape[1]):  # iterate over columns
@@ -79,6 +84,7 @@ def loocv_setD(Y, U, Sigma, V, S, regularization, Yhoo):
                                     regularization)
             Yhoo[i, j] = ktest.dot(A).dot(gtest.T)
     return Yhoo
+
 
 class KroneckerKernelRidgeRegression(PairwiseModel):
     """
@@ -129,11 +135,11 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         """
         return loocv_setC(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
-    
-    def lo_setting_C(self, regularization=1):
+
+    def lo_setting_D(self, regularization=1):
         """
         Imputation for setting D
-        Uses two for-loops so is VERY slow        
+        Uses two for-loops so is VERY slow   
         """
         return loocv_setD(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))

@@ -1,6 +1,6 @@
 """
 Created on Tue Feb 17 2015
-Last update: Mon 11 Jan 2016
+Last update: Wed 13 Jan 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
