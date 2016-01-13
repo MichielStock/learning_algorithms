@@ -19,42 +19,33 @@ def loocv_setA(Y, H_k, H_g):
     """
     return ( H_k.dot(Y).dot(H_g) -  # Yhat
             np.diag(H_g) * Y * np.diag(H_k).reshape((-1, 1))) / (1 -
-            np.dot(np.diag(H_k).reshape((-1, 1)), 
+            np.dot(np.diag(H_k).reshape((-1, 1)),
                         np.diag(H_g).reshape((1, -1))))
 
 
-def loocv_setB(Y, H_k, H_g, Yhoo):
+def loocv_setB(Y, H_k, H_g):
     """
-    Leave-one-pair out for two-step ridge regression setting A
+    Leave-one-pair out for two-step ridge regression setting B
     """
-    
-    
+    return (H_k - np.diag(np.diag(H_k))).dot(Y).dot(H_g) / (1 -
+            np.diag(H_k).reshape((-1, 1)))
 
 
-def loocv_setC(Y, H_k, H_g, Yhoo):
+def loocv_setC(Y, H_k, H_g):
     """
-    Leave-one-pair out for two-step ridge regression setting A
+    Leave-one-pair out for two-step ridge regression setting C
     """
-    H_g = 1
+    return H_k.dot(Y).dot(H_g - np.diag(np.diag(H_g))) / (1 -
+            np.diag(H_g))
 
 
-def loocv_setD(Y, H_k, H_g, Yhoo):
+def loocv_setD(Y, H_k, H_g):
     """
-    Leave-one-pair out for two-step ridge regression setting A
+    Leave-one-pair out for two-step ridge regression setting D
     """
-    G = (V * S).dot(V.T)
-    K = (U * Sigma).dot(U.T)
-    for i in range(Y.shape[0]):  # iterate over rows
-        Ksubset, ktest = kernel_split(K, i)
-        Sigma_new, U_new = np.linalg.eigh(Ksubset)
-        for j in range(Y.shape[1]):  # iterate over columns
-            Gsubset, gtest = kernel_split(G, j)
-            S_new, V_new = np.linalg.eigh(Gsubset)
-            Y_new = np.delete(np.delete(Y, i, axis=0), j, axis=1)
-            A = kronecker_ridge(Y_new, U_new, Sigma_new, V_new, S_new,
-                                    regularization)
-            Yhoo[i, j] = ktest.dot(A).dot(gtest.T)
-    return Yhoo
+    return (H_k - np.diag(np.diag(H_k))).dot(Y).dot(H_g -
+            np.diag(np.diag(H_g))) / (1 -
+            (np.diag(H_k).reshape((-1, 1))).dot(np.diag(H_g).reshape((1, -1))))
 
 
 class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
@@ -75,34 +66,41 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         """
         Imputation for setting A
         """
-        return loocv_setA(self._Y, self._U, self._Sigma, self._V, self._S,
-                                                          regularization)
+        reg_1, reg_2 = regularization
+        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
+        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        return loocv_setA(self._Y, H_k, H_g)
 
     def lo_setting_B(self, regularization=(1,1)):
         """
         Imputation for setting B
-        Uses a for-loop so is slow
         """
-        return loocv_setB(self._Y, self._U, self._Sigma, self._V, self._S,
-                                      regularization, np.zeros_like(self._Y))
+        reg_1, reg_2 = regularization
+        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
+        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        return loocv_setB(self._Y, H_k, H_g)
+
 
     def lo_setting_C(self, regularization=(1,1)):
         """
         Imputation for setting C
-        Uses a for-loop so is slow
         """
-        return loocv_setC(self._Y, self._U, self._Sigma, self._V, self._S,
-                                      regularization, np.zeros_like(self._Y))
+        reg_1, reg_2 = regularization
+        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
+        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        return loocv_setB(self._Y, H_k, H_g)
+
 
     def lo_setting_D(self, regularization=(1,1)):
         """
         Imputation for setting D
-        Uses two for-loops so is VERY slow   
         """
-        return loocv_setD(self._Y, self._U, self._Sigma, self._V, self._S,
-                                      regularization, np.zeros_like(self._Y))
-                                      
-                                      
+        reg_1, reg_2 = regularization
+        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
+        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        return loocv_setB(self._Y, H_k, H_g)
+
+
 if __name__ == '__main__':
 
     nrow = 25
@@ -117,7 +115,7 @@ if __name__ == '__main__':
 
     Sigma, U = np.linalg.eigh(K)
     S, V = np.linalg.eigh(G)
-    
+
     H_k = (U * Sigma / (Sigma + 10)).dot(U.T)
     H_g = (V * S / (S + 0.1)).dot(V.T)
 
