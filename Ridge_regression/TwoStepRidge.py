@@ -1,6 +1,6 @@
 """
 Created on Wed 13 Jan 2016
-Last update: -
+Last update: Thu 14 Jan 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -115,6 +115,10 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         return loocv_setD(self._Y, H_k, H_g)
 
     def loocv_grid_search(self, grid, setting='A', performance=rmse):
+        """
+        Explores the performance for a grid of the two regularization
+        parameters
+        """
         n_steps = len(grid)
         # initialize matrices
         performance_grid = np.zeros((n_steps, n_steps))
@@ -138,7 +142,7 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
                 Yhoo[:] = loocv_function(Y, H_k, H_g)
                 performance_grid[i, j] = performance(Y, Yhoo)
         return performance_grid
-        
+
     def tune_loocv(self, grid, setting='A', performance=rmse):
         """
         Tunes a model for a certain setting by grid search.
@@ -174,8 +178,8 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
 
 if __name__ == '__main__':
 
-    nrow = 25
-    ncol = 43
+    nrow = 11
+    ncol = 55
 
     Y = np.random.randn(nrow, ncol)
     X1 = np.random.randn(nrow, nrow)
@@ -196,12 +200,3 @@ if __name__ == '__main__':
     # test prediction function
     print('These values should be the same:')
     print(np.allclose(model.predict(), model.predict(K, G)))
-
-    # test for setting B
-
-    model2 = TwoStepRidgeRegression(Y[1:], K[1:,:][:,1:], G)
-    model2.train_model(regularization=(10, 0.1))
-    Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1))
-    Hoocalc = model.lo_setting_B((10, 0.1))[[0]]
-    print np.allclose(Hoopreds, Hoocalc)
-

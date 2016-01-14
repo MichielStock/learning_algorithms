@@ -146,9 +146,33 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         return loocv_setD(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
 
+    def loocv_grid_search(self, grid, setting='A', performance=rmse):
+        """
+        Explores the performance for a grid of the regularization parameter
+        """
+        n_steps = len(grid)
+        # initialize matrices
+        performance_grid = np.zeros(n_steps)
+        Yhoo = np.zeros_like(self._Y)
+        # choose setting
+        if setting == 'A':
+            loocv_function = loocv_setA
+        elif setting == 'B':
+            loocv_function = loocv_setB
+        elif setting == 'C':
+            loocv_function = loocv_setC
+        elif setting == 'D':
+            loocv_function = loocv_setD
+        for i, reg in enumerate(grid):
+            # calculate holdout values
+            Yhoo[:] = loocv_function(self._Y, self._U, self._Sigma,
+                                        self._V, self._S, reg, Yhoo)
+            performance_grid[i] = performance(Y, Yhoo)
+        return performance_grid
+
 if __name__ == '__main__':
 
-    nrow = 110
+    nrow = 11
     ncol = 55
 
     Y = np.random.randn(nrow, ncol)
