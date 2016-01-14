@@ -135,12 +135,13 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         elif setting == 'D':
             loocv_function = loocv_setD
         for i, reg_1 in enumerate(grid):
-            H_k[:] = (U * Sigma / (Sigma + reg_1)).dot(U.T)
+            H_k[:] = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
+                                self._U.T)
             for j, reg_2 in enumerate(grid):
-                H_g[:] = (V * S / (S + reg_2)).dot(V.T)
+                H_g[:] = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
                 # calculate holdout values
-                Yhoo[:] = loocv_function(Y, H_k, H_g)
-                performance_grid[i, j] = performance(Y, Yhoo)
+                Yhoo[:] = loocv_function(self._Y, H_k, H_g)
+                performance_grid[i, j] = performance(self._Y, Yhoo)
         return performance_grid
 
     def tune_loocv(self, grid, setting='A', performance=rmse):
@@ -164,12 +165,13 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         elif setting == 'D':
             loocv_function = loocv_setD
         for i, reg_1 in enumerate(grid):
-            H_k[:] = (U * Sigma / (Sigma + reg_1)).dot(U.T)
+            H_k[:] = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
+                                self._U.T)
             for j, reg_2 in enumerate(grid):
-                H_g[:] = (V * S / (S + reg_2)).dot(V.T)
+                H_g[:] = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
                 # calculate holdout values
-                Yhoo[:] = loocv_function(Y, H_k, H_g)
-                performance_ij = performance(Y, Yhoo)
+                Yhoo[:] = loocv_function(self._Y, H_k, H_g)
+                performance_ij = performance(self._Y, Yhoo)
                 if performance_ij < best_perf:
                     best_regs = (reg_1, reg_2)
                     best_perf = performance_ij

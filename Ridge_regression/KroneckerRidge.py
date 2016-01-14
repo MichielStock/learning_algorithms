@@ -166,9 +166,38 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         for i, reg in enumerate(grid):
             # calculate holdout values
             Yhoo[:] = loocv_function(self._Y, self._U, self._Sigma,
-                                        self._V, self._S, reg, Yhoo)
-            performance_grid[i] = performance(Y, Yhoo)
+                                            self._V, self._S, reg, Yhoo)
+            performance_grid[i] = performance(self._Y, Yhoo)
         return performance_grid
+
+    def tune_loocv(self, grid, setting='A', performance=rmse):
+        """
+        Tunes a model for a certain setting by grid search.
+        Gives the model with the LOWEST value for performance metric
+        """
+        # initialize matrices
+        best_perf = np.inf
+        best_reg = 0
+        Yhoo = np.zeros_like(self._Y)
+        # choose setting
+        if setting == 'A':
+            loocv_function = loocv_setA
+        elif setting == 'B':
+            loocv_function = loocv_setB
+        elif setting == 'C':
+            loocv_function = loocv_setC
+        elif setting == 'D':
+            loocv_function = pyloocv_setD
+        for i, reg in enumerate(grid):
+            # calculate holdout values
+            Yhoo[:] = loocv_function(self._Y, self._U, self._Sigma,
+                                        self._V, self._S, reg, Yhoo)
+            perf = performance(self._Y, Yhoo)
+            if perf < best_perf:
+                best_reg = reg
+                best_perf = perf
+        self.train_model(best_reg)
+        print('Best regularization {} gives {}'.format(best_reg, best_perf))
 
 if __name__ == '__main__':
 
