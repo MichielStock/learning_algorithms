@@ -182,7 +182,7 @@ class TestTwoStepRidge(unittest.TestCase):
         # print(Hoopreds, Hoocalc)
         self.assertTrue(np.allclose(Hoopreds, Hoocalc))
         
-    def test_one_row_imputation(self):
+    def test_one_col_imputation(self):
         Y, K, G, reg_1 = make_problem(25, 40)
         reg_2 = np.random.rand() * 10
         model = TwoStepRidgeRegression(Y, K, G)
@@ -190,7 +190,7 @@ class TestTwoStepRidge(unittest.TestCase):
         model2.train_model(regularization=(reg_1, reg_2))
         Hoopreds = model2.predict(g = np.delete(G[[0],:], 0, axis=1))
         Hoocalc = model.lo_setting_C((reg_1, reg_2))[:, 0]
-        print(Hoopreds, Hoocalc)
+        # print(Hoopreds, Hoocalc)
         self.assertTrue(np.allclose(Hoopreds.ravel(), Hoocalc))
         
     def test_D(self):
@@ -201,10 +201,10 @@ class TestTwoStepRidge(unittest.TestCase):
                                         G[1:,:][:,1:])
         model2.train_model(regularization=(reg_1, reg_2))
         Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1),
-                                  g = np.delete(G[[0],:], 0, axis=1))
+                                  g = np.delete(G[[0],:], 0, axis=1))[0, 0]
         Hoocalc = model.lo_setting_D((reg_1, reg_2))[0, 0]
-        print(Hoopreds, Hoocalc)
-        self.assertTrue(np.allclose(Hoopreds, Hoocalc))
+        # print(Hoopreds, Hoocalc)
+        self.assertTrue(np.allclose(Hoopreds.ravel(), Hoocalc))
         
         
 if __name__ == '__main__':
