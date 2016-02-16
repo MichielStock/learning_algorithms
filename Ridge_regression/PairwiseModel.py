@@ -46,6 +46,7 @@ class PairwiseModel:
         self._Y = Y
         self._U = U
         self._V = V
+        self.nrows, self.ncols = Y.shape
         self._Sigma = Sigma
         self._S = S
 
@@ -62,23 +63,23 @@ class PairwiseModel:
         assert self._Y.min() == 0 and self._Y.max() == 1
         self._Y = self._Y.astype(float)
         if axis is None:
-            N = self.n_u * self.n_v * 1.0
+            N = self.nrows * self.ncols * 1.0
             Npos = self._Y.sum()
             self._Y[self._Y > 0] = N / Npos
             self._Y[self._Y <= 0] = - N / (N - Npos)
         elif axis == 0:
             rowsums = self._Y.sum(1)
-            for i in range(self.n_u):
+            for i in range(self.nrows):
                 y = self._Y[i]
-                y[y > 0] = self.n_v / rowsums[i]
-                y[y == 0] = - self.n_v / (self.n_v - rowsums[i])
+                y[y > 0] = self.ncols / rowsums[i]
+                y[y == 0] = - self.ncols / (self.ncols - rowsums[i])
                 self._Y[i] = y
         elif axis == 1:
             colsums = self._Y.sum(0)
-            for i in range(self.n_v):
+            for i in range(self.ncols):
                 y = self._Y[:, i]
-                y[y > 0] = self.n_u / colsums[i]
-                y[y == 0] = - self.n_u / (self.n_u - colsums[i])
+                y[y > 0] = self.nrows / colsums[i]
+                y[y == 0] = - self.nrows / (self.nrows - colsums[i])
                 self._Y[:, i] = y
 
     def _parameters_from_leverages(self, L):

@@ -177,8 +177,7 @@ class TestTwoStepRidge(unittest.TestCase):
         model2.train_model(regularization=(reg_1, reg_2))
         Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1))
         Hoocalc = model.lo_setting_B((reg_1, reg_2))[[0]]
-        print(Hoopreds)
-        print(Hoocalc)
+        # print(Hoopreds, Hoocalc)
         self.assertTrue(np.allclose(Hoopreds, Hoocalc))
         
         
