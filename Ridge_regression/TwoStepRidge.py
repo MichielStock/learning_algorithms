@@ -1,6 +1,6 @@
 """
 Created on Wed 13 Jan 2016
-Last update: Thu 14 Jan 2016
+Last update: Tue 16 Feb 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -9,6 +9,7 @@ Implementations of the two-step kernel ridge regression method
 """
 
 import numpy as np
+import numba
 from KroneckerRidge import KroneckerKernelRidgeRegression
 from PairwiseModel import *
 
@@ -41,13 +42,18 @@ def loocv_setC(Y, H_k, H_g):
             np.diag(H_g))
 
 
-def loocv_setD(Y, H_k, H_g):
+#@numba.jit
+def loocv_setD(Y, H_k, H_g, Y_hoo):
     """
     Leave-one-pair out for two-step ridge regression setting D
     """
-    return (H_k - np.diag(np.diag(H_k))).dot(Y).dot(H_g -
-            np.diag(np.diag(H_g))) / (1 -
-            (np.diag(H_k).reshape((-1, 1))).dot(np.diag(H_g).reshape((1, -1))))
+    for i in range(Y.shape[0]):
+        for j in range(Y.shape[1]):
+            Y_hoo[i, j] = H_k[i, :].dot(Y.dot(H_g[:,j ]) - Y[:, j] * H_g[j, j])
+            Y_hoo[i, j] -= H_k[i, i] * (Y[[i]].dot(H_g[:, j]) - Y[i, j] *
+                    H_g[j, j])
+            Y_hoo[i, j] /= (1 - H_k[i, i]) * (1 - H_g[j, j])
+    return Y_hoo
 
 def regularization_map_2sridge(Y, Sigma, U, S, V, H_k, H_g, loocv_function,
                                Yhoo, grid, performance, performance_matrix):
@@ -94,7 +100,11 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         reg_1, reg_2 = regularization
         H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
-        return loocv_setB(self._Y, H_k, H_g)
+        leverages_k = np.diag(H_k).reshape((-1, 1))
+        rep_leverages = np.repeat(leverages_k, self.ncols, axis=1)
+        Y_loo = (H_k.dot(self._Y) - rep_leverages * self._Y).dot(H_g)
+        Y_loo /= 1.0 - rep_leverages
+        return Y_loo
 
     def lo_setting_C(self, regularization=(1, 1)):
         """
@@ -103,7 +113,9 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         reg_1, reg_2 = regularization
         H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
-        return loocv_setC(self._Y, H_k, H_g)
+        Y_loo = H_k.dot(self._Y.dot(H_g) - self._Y * np.diag(H_g))
+        Y_loo /= np.diag(H_g)
+        return Y_loo
 
     def lo_setting_D(self, regularization=(1, 1)):
         """
@@ -112,7 +124,14 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         reg_1, reg_2 = regularization
         H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
         H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
-        return loocv_setD(self._Y, H_k, H_g)
+        leverages_k = np.diag(H_k).reshape((-1, 1))
+        leverages_g = np.diag(H_g).reshape((1, -1))
+        Y_loo = H_k.dot(self._Y).dot(H_g)
+        Y_loo -= H_k.dot(self._Y) * leverages_g
+        Y_loo -= leverages_k * (self._Y.dot(H_g))
+        Y_loo += leverages_k * self._Y * leverages_g
+        Y_loo /= 1 - leverages_k.dot(leverages_g)
+        return Y_loo
 
     def loocv_grid_search(self, grid, setting='A', performance=rmse):
         """
@@ -180,8 +199,8 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
 
 if __name__ == '__main__':
 
-    nrow = 11
-    ncol = 55
+    nrow = 110
+    ncol = 150
 
     Y = np.random.randn(nrow, ncol)
     X1 = np.random.randn(nrow, nrow)
