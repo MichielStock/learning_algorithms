@@ -150,7 +150,8 @@ class TestTwoStepRidge(unittest.TestCase):
                 # print(Yhoo[i,j], pred_ij, Y[i,j])
         correct = np.all(tests)
         self.assertTrue(correct)
-
+        
+    """
     def test_settingB_holdout(self):
         Y, K, G, reg_1 = make_problem(10, 40)
         reg_2 = np.random.rand() * 10
@@ -168,7 +169,8 @@ class TestTwoStepRidge(unittest.TestCase):
             # print(Yhoo[i, :], pred_i, Y[i, :])
         correct = np.all(tests)
         self.assertTrue(correct)
-
+    """
+    
     def test_one_line_imputation(self):
         Y, K, G, reg_1 = make_problem(10, 40)
         reg_2 = np.random.rand() * 10
@@ -178,6 +180,30 @@ class TestTwoStepRidge(unittest.TestCase):
         Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1))
         Hoocalc = model.lo_setting_B((reg_1, reg_2))[[0]]
         # print(Hoopreds, Hoocalc)
+        self.assertTrue(np.allclose(Hoopreds, Hoocalc))
+        
+    def test_one_row_imputation(self):
+        Y, K, G, reg_1 = make_problem(25, 40)
+        reg_2 = np.random.rand() * 10
+        model = TwoStepRidgeRegression(Y, K, G)
+        model2 = TwoStepRidgeRegression(Y[:,1:], K, G[1:,:][:,1:])
+        model2.train_model(regularization=(reg_1, reg_2))
+        Hoopreds = model2.predict(g = np.delete(G[[0],:], 0, axis=1))
+        Hoocalc = model.lo_setting_C((reg_1, reg_2))[:, 0]
+        print(Hoopreds, Hoocalc)
+        self.assertTrue(np.allclose(Hoopreds.ravel(), Hoocalc))
+        
+    def test_D(self):
+        Y, K, G, reg_1 = make_problem(20, 50)
+        reg_2 = np.random.rand() * 10
+        model = TwoStepRidgeRegression(Y, K, G)
+        model2 = TwoStepRidgeRegression(Y[1:][:,1:], K[1:,:][:,1:],
+                                        G[1:,:][:,1:])
+        model2.train_model(regularization=(reg_1, reg_2))
+        Hoopreds = model2.predict(k = np.delete(K[[0],:], 0, axis=1),
+                                  g = np.delete(G[[0],:], 0, axis=1))
+        Hoocalc = model.lo_setting_D((reg_1, reg_2))[0, 0]
+        print(Hoopreds, Hoocalc)
         self.assertTrue(np.allclose(Hoopreds, Hoocalc))
         
         
