@@ -9,7 +9,6 @@ Implementations of the two-step kernel ridge regression method
 """
 
 import numpy as np
-import numba
 from KroneckerRidge import KroneckerKernelRidgeRegression
 from PairwiseModel import *
 
@@ -83,47 +82,59 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
                     self._U.T).dot(self._Y).dot(self._V / (self._S +
                     reg_2)).dot(self._V.T)
 
-    def lo_setting_A(self, regularization=(1, 1)):
+    def lo_setting_A(self, regularization=(1, 1), H_k=None, H_g=None):
         """
         Imputation for setting A
         """
         reg_1, reg_2 = regularization
-        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
-        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        if H_k is None:
+            H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
+                        self._U.T)
+        if H_g is None:
+            H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         self.regularization = regularization
         return loocv_setA(self._Y, H_k, H_g)
 
-    def lo_setting_B(self, regularization=(1, 1)):
+    def lo_setting_B(self, regularization=(1, 1), H_k=None, H_g=None):
         """
         Imputation for setting B
         """
         reg_1, reg_2 = regularization
-        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
-        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        if H_k is None:
+            H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
+                        self._U.T)
+        if H_g is None:
+            H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         leverages_k = np.diag(H_k).reshape((-1, 1))
         rep_leverages = np.repeat(leverages_k, self.ncols, axis=1)
         Y_loo = (H_k.dot(self._Y) - rep_leverages * self._Y).dot(H_g)
         Y_loo /= 1.0 - rep_leverages
         return Y_loo
 
-    def lo_setting_C(self, regularization=(1, 1)):
+    def lo_setting_C(self, regularization=(1, 1), H_k=None, H_g=None):
         """
         Imputation for setting C
         """
         reg_1, reg_2 = regularization
-        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
-        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        if H_k is None:
+            H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
+                        self._U.T)
+        if H_g is None:
+            H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         Y_loo = H_k.dot(self._Y.dot(H_g) - self._Y * np.diag(H_g))
         Y_loo /= 1 - np.diag(H_g)
         return Y_loo
 
-    def lo_setting_D(self, regularization=(1, 1)):
+    def lo_setting_D(self, regularization=(1, 1), H_k=None, H_g=None):
         """
         Imputation for setting D
         """
         reg_1, reg_2 = regularization
-        H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(self._U.T)
-        H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
+        if H_k is None:
+            H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
+                        self._U.T)
+        if H_g is None:
+            H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         leverages_k = np.diag(H_k).reshape((-1, 1))
         leverages_g = np.diag(H_g).reshape((1, -1))
         Y_loo = H_k.dot(self._Y).dot(H_g)
@@ -131,7 +142,6 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         Y_loo -= leverages_k * (self._Y.dot(H_g))
         Y_loo += leverages_k * self._Y * leverages_g
         Y_loo /= (1 - leverages_k).dot(1 - leverages_g)
-        # print(1 - leverages_k).dot(1 - leverages_g)
         return Y_loo
 
     def loocv_grid_search(self, grid, setting='A', performance=rmse):
@@ -143,24 +153,23 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         # initialize matrices
         performance_grid = np.zeros((n_steps, n_steps))
         Yhoo = np.zeros_like(self._Y)
+        # choose setting
         H_k = np.zeros((self.nrows, self.nrows))
         H_g = np.zeros((self.ncols, self.ncols))
-        # choose setting
-        if setting == 'A':
-            loocv_function = loocv_setA
-        elif setting == 'B':
-            loocv_function = loocv_setB
-        elif setting == 'C':
-            loocv_function = loocv_setC
-        elif setting == 'D':
-            loocv_function = loocv_setD
         for i, reg_1 in enumerate(grid):
             H_k[:] = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
                                 self._U.T)
             for j, reg_2 in enumerate(grid):
                 H_g[:] = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
                 # calculate holdout values
-                Yhoo[:] = loocv_function(self._Y, H_k, H_g)
+                if setting == 'A':
+                    Yhoo[:] = self.lo_setting_A((reg_1, reg_2), H_k, H_g)
+                elif setting == 'B':
+                    Yhoo[:] = self.lo_setting_B((reg_1, reg_2), H_k, H_g)
+                elif setting == 'C':
+                    Yhoo[:] = self.lo_setting_C((reg_1, reg_2), H_k, H_g)
+                elif setting == 'D':
+                    Yhoo[:] = self.lo_setting_D((reg_1, reg_2), H_k, H_g)
                 performance_grid[i, j] = performance(self._Y, Yhoo)
         return performance_grid
 
