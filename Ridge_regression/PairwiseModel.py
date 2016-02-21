@@ -41,8 +41,8 @@ def c_index(y, p):
     compared = 0.0
     ordered = 0.0
     n = len(y)
-    for i in range(n):
-        for j in range(i):
+    for i in range(n - 1):
+        for j in range(i, n):
             if y[i] > y[j]:
                 compared += 1
                 if p[i] > p[j]:
@@ -51,7 +51,19 @@ def c_index(y, p):
                     ordered += 0.5
     return ordered / compared
         
-
+# C-index for matrices
+def matrix_c_index(Y, P, axis=0):
+    nrows, ncols = Y.shape
+    if axis==0:
+        return np.mean([c_index(Y[:,i], P[:,i]) for i in range(ncols)
+                    if np.var(Y[:,i]) > 1e-8])
+    elif axis==1:
+        return np.mean([c_index(Y[[i]], P[[i]]) for i in range(nrows)
+                    if np.var(Y[[i]]) > 1e-8])
+    else:
+        raise KeyError
+        
+        
 class PairwiseModel:
     """
     General pairwise model to use as a base for Kronecker ridge models and

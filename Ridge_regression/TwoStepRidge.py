@@ -78,6 +78,7 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         Trains an Kronecker kernel ridge regression model
         """
         reg_1, reg_2 = regularization
+        self.regularization = regularization
         self._A = (self._U / (self._Sigma + reg_1)).dot(
                     self._U.T).dot(self._Y).dot(self._V / (self._S +
                     reg_2)).dot(self._V.T)
@@ -92,7 +93,6 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
                         self._U.T)
         if H_g is None:
             H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
-        self.regularization = regularization
         return loocv_setA(self._Y, H_k, H_g)
 
     def lo_setting_B(self, regularization=(1, 1), H_k=None, H_g=None):
