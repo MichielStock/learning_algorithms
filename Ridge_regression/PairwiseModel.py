@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 11 Jan 2016
-Last update: Wed 13 Jan 2016
+Last update: Sun 21 Feb 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -33,6 +33,24 @@ def micro_auc(Y, P):
     n, m = Y.shape
     return np.mean([auc(Y[:,i] > 0, P[:,i]) for i in range(m) if Y[:,i].var()])
 
+# C-index
+def c_index(y, p):
+    """
+    C-index for vectors
+    """
+    compared = 0.0
+    ordered = 0.0
+    n = len(y)
+    for i in range(n):
+        for j in range(i):
+            if y[i] > y[j]:
+                compared += 1
+                if p[i] > p[j]:
+                    ordered += 1
+                elif p[i] == p[j]:
+                    ordered += 0.5
+    return ordered / compared
+        
 
 class PairwiseModel:
     """
