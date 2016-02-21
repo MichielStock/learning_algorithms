@@ -1,6 +1,6 @@
 """
 Created on Wed 13 Jan 2016
-Last update: Tue 16 Feb 2016
+Last update: Sun 21 Feb 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -185,21 +185,20 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         H_k = np.zeros((self.nrows, self.nrows))
         H_g = np.zeros((self.ncols, self.ncols))
         # choose setting
-        if setting == 'A':
-            loocv_function = loocv_setA
-        elif setting == 'B':
-            loocv_function = loocv_setB
-        elif setting == 'C':
-            loocv_function = loocv_setC
-        elif setting == 'D':
-            loocv_function = loocv_setD
         for i, reg_1 in enumerate(grid):
             H_k[:] = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
                                 self._U.T)
             for j, reg_2 in enumerate(grid):
                 H_g[:] = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
                 # calculate holdout values
-                Yhoo[:] = loocv_function(self._Y, H_k, H_g)
+                if setting == 'A':
+                    Yhoo[:] = self.lo_setting_A((reg_1, reg_2), H_k, H_g)
+                elif setting == 'B':
+                    Yhoo[:] = self.lo_setting_B((reg_1, reg_2), H_k, H_g)
+                elif setting == 'C':
+                    Yhoo[:] = self.lo_setting_C((reg_1, reg_2), H_k, H_g)
+                elif setting == 'D':
+                    Yhoo[:] = self.lo_setting_D((reg_1, reg_2), H_k, H_g)
                 performance_ij = performance(self._Y, Yhoo)
                 if performance_ij < best_perf:
                     best_regs = (reg_1, reg_2)
