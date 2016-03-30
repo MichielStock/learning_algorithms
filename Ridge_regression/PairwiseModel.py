@@ -41,8 +41,8 @@ def c_index(y, p):
     compared = 0.0
     ordered = 0.0
     n = len(y)
-    for i in range(n - 1):
-        for j in range(i, n):
+    for i in range(n):
+        for j in range(n):
             if y[i] > y[j]:
                 compared += 1
                 if p[i] > p[j]:
