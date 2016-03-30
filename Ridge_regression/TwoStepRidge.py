@@ -1,6 +1,6 @@
 """
 Created on Wed 13 Jan 2016
-Last update: Sun 21 Feb 2016
+Last update: Wed 30 Mar 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -83,11 +83,14 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
                     self._U.T).dot(self._Y).dot(self._V / (self._S +
                     reg_2)).dot(self._V.T)
 
-    def lo_setting_A(self, regularization=(1, 1), H_k=None, H_g=None):
+    def lo_setting_A(self, regularization=None, H_k=None, H_g=None):
         """
         Imputation for setting A
         """
-        reg_1, reg_2 = regularization
+        if regularization is not None:
+            reg_1, reg_2 = regularization
+        else:
+            reg_1, reg_2 = self.regularization
         if H_k is None:
             H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
                         self._U.T)
@@ -95,11 +98,14 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
             H_g = (self._V * self._S / (self._S + reg_2)).dot(self._V.T)
         return loocv_setA(self._Y, H_k, H_g)
 
-    def lo_setting_B(self, regularization=(1, 1), H_k=None, H_g=None):
+    def lo_setting_B(self, regularization=None, H_k=None, H_g=None):
         """
         Imputation for setting B
         """
-        reg_1, reg_2 = regularization
+        if regularization is not None:
+            reg_1, reg_2 = regularization
+        else:
+            reg_1, reg_2 = self.regularization
         if H_k is None:
             H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
                         self._U.T)
@@ -111,11 +117,14 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         Y_loo /= 1.0 - rep_leverages
         return Y_loo
 
-    def lo_setting_C(self, regularization=(1, 1), H_k=None, H_g=None):
+    def lo_setting_C(self, regularization=None, H_k=None, H_g=None):
         """
         Imputation for setting C
         """
-        reg_1, reg_2 = regularization
+        if regularization is not None:
+            reg_1, reg_2 = regularization
+        else:
+            reg_1, reg_2 = self.regularization
         if H_k is None:
             H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
                         self._U.T)
@@ -125,11 +134,14 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         Y_loo /= 1 - np.diag(H_g)
         return Y_loo
 
-    def lo_setting_D(self, regularization=(1, 1), H_k=None, H_g=None):
+    def lo_setting_D(self, regularization=None, H_k=None, H_g=None):
         """
         Imputation for setting D
         """
-        reg_1, reg_2 = regularization
+        if regularization is not None:
+            reg_1, reg_2 = regularization
+        else:
+            reg_1, reg_2 = self.regularization
         if H_k is None:
             H_k = (self._U * self._Sigma / (self._Sigma + reg_1)).dot(
                         self._U.T)
