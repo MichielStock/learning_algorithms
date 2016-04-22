@@ -15,6 +15,27 @@ Each interaction dataset has following properties:
     - version number
 """
 
+import json
+import numpy as np
+
+def dense_graph_to_matrix(shape, graph, dtype):
+    """
+    Turns dense graph into a numpy matrix
+    """
+    Y = np.zeros(shape, dtype=dtype)
+    for i, vals in graph.items():
+        # keys in json are str
+        Y[int(i), :] = np.array(vals)[:]
+    return vals
+
+def sparse_graph_to_matrix(shape, graph, dtype):
+    Y = np.zeros(shape, dtype=dtype)
+    for i, nodes in graph.items():
+        for j, val in nodes:
+            # keys in json are str
+            Y[int(), j] = val
+    return Y
+
 class InteractionDataset:
     """
     Class to store interaction datasets
@@ -41,7 +62,7 @@ class InteractionDataset:
         self.reference = reference  # i.e. ref to original paper
         self.category = category  # e.g. 'protein-ligans'
         self.interaction_type = interaction_type  # e.g. 'protein interaction'
-        self.data_type = str(self.Y.dtype)
+        self.data_type = self.Y.dtype
 
         # information about the rows
         self.u_objects = u_objects
@@ -62,28 +83,56 @@ class InteractionDataset:
         interactions (dense=True) or a list of tuples (col_ind, val) for the
         non-negative interactions (dense=False, default)
         """
-
-        if self.u_objects is None:
-            u_objects = range(self.n_rows)
-        else:
-            u_objects = self.u_objects
-        if self.v_objects is None:
-            v_objects = range(self.n_cols)
-        else:
-            v_objects = self.v_objects
-
         if dense == True:
-            graph = {sp_row : list(self.Y[i])
-            for i, sp_row in enumerate(u_objects)}
+            graph = {i : list(self.Y[i])
+            for i in range(self.n_rows)}
         else:
-            graph = {sp_row : [(sp_col, self.Y[i, j])
-            for j, sp_col in enumerate(v_objects)
+            graph = {i : [(j, self.Y[i, j])
+            for j in range(self.n_cols)
             if self.Y[i, j] != 0]
-            for i, sp_row in enumerate(u_objects)}
+            for i in range(self.n_rows)}
         return graph
 
+    def dump(self, filename, dense=False):
+        """
+        Saves the dataset into a json file
+        """
+        fh = open(filename, 'w')
+        data = {'version' : self.version,
+                'metadata' : {'name' : self.name,
+                            'reference' : self.reference,
+                            'category' : self.category,
+                            'interaction_type' : self.interaction_type,
+                            'data_type' : str(self.data_type),
+                            'storage' : 'dense' if dense else 'sparse'},
+                'rows' : {'objects' : self.u_objects,
+                            'type' : self.u_type,
+                            'number' : self.n_rows},
+                'columns' : {'objects' : self.v_objects,
+                            'type' : self.v_type,
+                            'number' : self.n_cols},
+                'interactions' : self.make_graph(dense)
+                }
+        json.dump(data, fh, indent=4, separators=(',', ':'))
+
+    @classmethod
+    def load(self, filename):
+        fh = open(filename, 'r')
+        data = json.load(fh)
+        assert data['version'] == 1
+        # load interaction matrix
+        shape = (data['rows']['number'], data['columns']['number'])
+        dtype = data['metadata']['data_type']
+        graph = data['interactions']
+        if data['metadata']['storage'] == 'dense':
+            Y = dense_graph_to_matrix(shape, graph, dtype)
+        elif data['metadata']['storage'] == 'sparse':
+            Y = sparse_graph_to_matrix(shape, graph, dtype)
+        else:
+            raise KeyError('storage format is either \'dense\' or \'sparse\'')
+        return self(Y)
+
 if __name__ == '__main__':
-    import numpy as np
 
     Y = np.random.binomial(3, 0.1, (100, 500))
 
@@ -93,3 +142,5 @@ if __name__ == '__main__':
             }
 
     dset = InteractionDataset(Y, **kwargs)
+
+    dset.dump('test.json', dense=True)
