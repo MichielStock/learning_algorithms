@@ -120,7 +120,7 @@ class InteractionDataset:
         json.dump(data, fh, indent=indent, separators=(',', ':'))
 
     @classmethod
-    def load(self, filename):
+    def load_json(self, filename):
         fh = open(filename, 'r')
         data = json.load(fh)
         assert data['version'] == 1
@@ -134,7 +134,14 @@ class InteractionDataset:
             Y = sparse_graph_to_matrix(shape, graph, dtype)
         else:
             raise KeyError('storage format is either \'dense\' or \'sparse\'')
-        return self(Y)
+        return self(Y, name=data['metadata']['name'],
+                    reference=data['metadata']['reference'],
+                    category=data['metadata']['category'],
+                    interaction_type=data['metadata']['interaction_type'],
+                    u_objects=data['rows']['objects'],
+                    u_type=data['rows']['type'],
+                    v_objects=data['columns']['objects'],
+                    v_type=data['columns']['type'])
 
 if __name__ == '__main__':
 
@@ -148,5 +155,5 @@ if __name__ == '__main__':
     dset = InteractionDataset(Y, **kwargs)
 
     dset.dump('test.json', dense=True)
-    
-    dset2 = InteractionDataset.load('test.json')
+
+    dset2 = InteractionDataset.load_json('test.json')
