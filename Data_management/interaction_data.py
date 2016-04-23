@@ -1,6 +1,6 @@
 """
 Created on Fri Apr 22 2016
-Last update: -
+Last update: Sat Apr 23 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -26,7 +26,7 @@ def dense_graph_to_matrix(shape, graph, dtype):
     for i, vals in graph.items():
         # keys in json are str
         Y[int(i), :] = np.array(vals)[:]
-    return vals
+    return Y
 
 def sparse_graph_to_matrix(shape, graph, dtype):
     Y = np.zeros(shape, dtype=dtype)
@@ -93,9 +93,13 @@ class InteractionDataset:
             for i in range(self.n_rows)}
         return graph
 
-    def dump(self, filename, dense=False):
+    def dump(self, filename, dense=False, indent=None):
         """
         Saves the dataset into a json file
+        Inputs:
+            - filname
+            - dense (bool) to store the data in dense or sparse format
+            - indent (int) indent to generate a readable file (default None)
         """
         fh = open(filename, 'w')
         data = {'version' : self.version,
@@ -113,7 +117,7 @@ class InteractionDataset:
                             'number' : self.n_cols},
                 'interactions' : self.make_graph(dense)
                 }
-        json.dump(data, fh, indent=4, separators=(',', ':'))
+        json.dump(data, fh, indent=indent, separators=(',', ':'))
 
     @classmethod
     def load(self, filename):
@@ -144,3 +148,5 @@ if __name__ == '__main__':
     dset = InteractionDataset(Y, **kwargs)
 
     dset.dump('test.json', dense=True)
+    
+    dset2 = InteractionDataset.load('test.json')
