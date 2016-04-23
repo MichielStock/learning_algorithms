@@ -120,7 +120,18 @@ class InteractionDataset:
         json.dump(data, fh, indent=indent, separators=(',', ':'))
 
     @classmethod
+    def load_csv(self, filename, kwargs):
+        """
+        Load a dataset from csv format
+        """
+        Y = np.genfromtxt(filename)
+        return self(Y, **kwargs)
+
+    @classmethod
     def load_json(self, filename):
+        """
+        Load a dataset from JSON format
+        """
         fh = open(filename, 'r')
         data = json.load(fh)
         assert data['version'] == 1
