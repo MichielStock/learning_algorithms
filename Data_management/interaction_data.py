@@ -1,6 +1,6 @@
 """
 Created on Fri Apr 22 2016
-Last update: Sat Apr 23 2016
+Last update: Sun Apr 24 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -8,10 +8,11 @@ michielfmstock@gmail.com
 Module for storing interaction datasets
 
 Each interaction dataset has following properties:
-    - metadata: name, reference, category, interaction types
-    - columns: kind, number, datatype, (list of objects)
-    - rows: kind, number, datatype, (list of objects)
     - interaction (adjacency) matrix
+    - name
+    - general metadata
+    - metadata rows
+    - metadata columns
     - version number
 """
 
@@ -41,10 +42,11 @@ class InteractionDataset:
     Class to store interaction datasets
 
     Each interaction dataset has following properties:
-        - metadata: name, reference, category, interaction types
-        - columns: kind, number, datatype, (list of objects)
-        - rows: kind, number, datatype, (list of objects)
         - interaction (adjacency) matrix
+        - name
+        - general metadata
+        - metadata rows
+        - metadata columns
         - version number
 
     Here we use the convention that 'u' refers to objects of the rows and 'v'
