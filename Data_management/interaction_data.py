@@ -18,7 +18,7 @@ Each interaction dataset has following properties:
 import json
 import numpy as np
 
-def dense_graph_to_matrix(shape, graph, dtype):
+def dense_graph_to_matrix(shape, graph, dtype=float):
     """
     Turns dense graph into a numpy matrix
     """
@@ -28,7 +28,7 @@ def dense_graph_to_matrix(shape, graph, dtype):
         Y[int(i), :] = np.array(vals)[:]
     return Y
 
-def sparse_graph_to_matrix(shape, graph, dtype):
+def sparse_graph_to_matrix(shape, graph, dtype=float):
     Y = np.zeros(shape, dtype=dtype)
     for i, nodes in graph.items():
         for j, val in nodes:
@@ -50,29 +50,29 @@ class InteractionDataset:
     Here we use the convention that 'u' refers to objects of the rows and 'v'
     to objects of the columns.
     """
-    def __init__(self, interaction_matrix, name=None, reference=None,
-                    category=None, interaction_type=None, u_objects=None,
-                    u_type=None, v_objects=None, v_type=None):
+    def __init__(self, interaction_matrix, name=None, metadata=None,
+                     u_metadata=None, v_metadata=None):
+        """
+        Construct an interaction dataset with a given interaction matrix and
+        (optionally) a name and general, rows and columns metadata
+        """
         # interaction matrix
         self.Y = interaction_matrix  # e.g. a protein-ligand interaction binding
         # matrix
 
         # metadata
-        self.name = name  # e.g. 'Karaman dataset'
-        self.reference = reference  # i.e. ref to original paper
-        self.category = category  # e.g. 'protein-ligans'
-        self.interaction_type = interaction_type  # e.g. 'protein interaction'
-        self.data_type = self.Y.dtype
+        self.name = name
+        self.metadata = metadata
 
         # information about the rows
-        self.u_objects = u_objects
-        self.u_type = u_type
+        self.u_metadata = u_metadata
 
         # information about the columns
-        self.v_objects = v_objects
-        self.v_type = v_type
+        self.v_metadata = v_metadata
 
+        # propperties about the dataset
         self.n_rows, self.n_cols = self.Y.shape
+        self.density = np.sum(Y != 0) / self.n_rows * self.n_cols
 
         self.version = 1
 
@@ -103,19 +103,15 @@ class InteractionDataset:
         """
         fh = open(filename, 'w')
         data = {'version' : self.version,
-                'metadata' : {'name' : self.name,
-                            'reference' : self.reference,
-                            'category' : self.category,
-                            'interaction_type' : self.interaction_type,
-                            'data_type' : str(self.data_type),
-                            'storage' : 'dense' if dense else 'sparse'},
-                'rows' : {'objects' : self.u_objects,
-                            'type' : self.u_type,
-                            'number' : self.n_rows},
-                'columns' : {'objects' : self.v_objects,
-                            'type' : self.v_type,
-                            'number' : self.n_cols},
-                'interactions' : self.make_graph(dense)
+                'name' : self.name,
+                'metadata' : self.metadata,
+                'u_metadata' : self.u_metadata,
+                'v_metadata' : self.v_metadata,
+                'interactions' : self.make_graph(dense),
+                'n_rows' : self.n_rows,
+                'n_cols' : self.n_cols,
+                'density' : self.density,
+                'storage' : 'dense' if dense else 'sparse'
                 }
         json.dump(data, fh, indent=indent, separators=(',', ':'))
 
@@ -136,34 +132,33 @@ class InteractionDataset:
         data = json.load(fh)
         assert data['version'] == 1
         # load interaction matrix
-        shape = (data['rows']['number'], data['columns']['number'])
-        dtype = data['metadata']['data_type']
+        shape = (data['n_rows'], data['n_cols'])
         graph = data['interactions']
-        if data['metadata']['storage'] == 'dense':
-            Y = dense_graph_to_matrix(shape, graph, dtype)
-        elif data['metadata']['storage'] == 'sparse':
-            Y = sparse_graph_to_matrix(shape, graph, dtype)
+        if data['storage'] == 'dense':
+            Y = dense_graph_to_matrix(shape, graph)
+        elif data['storage'] == 'sparse':
+            Y = sparse_graph_to_matrix(shape, graph)
         else:
             raise KeyError('storage format is either \'dense\' or \'sparse\'')
-        return self(Y, name=data['metadata']['name'],
-                    reference=data['metadata']['reference'],
-                    category=data['metadata']['category'],
-                    interaction_type=data['metadata']['interaction_type'],
-                    u_objects=data['rows']['objects'],
-                    u_type=data['rows']['type'],
-                    v_objects=data['columns']['objects'],
-                    v_type=data['columns']['type'])
+        return self(Y, name=data['name'],
+                    metadata=data['metadata'],
+                     u_metadata=data['u_metadata'],
+                    v_metadata=data['v_metadata'])
 
 if __name__ == '__main__':
 
     Y = np.random.binomial(3, 0.1, (100, 500))
 
-    kwargs = {'name' : 'mydata',
-            'reference' : 'made up',
-            'category' : 'toy interaction dataset'
-            }
+    name = 'simulated dataset'
+    metadata = 'no metadata'
+    u_metadata = map(str, range(100))
+    v_metadata = map(str, range(500))
 
-    dset = InteractionDataset(Y, **kwargs)
+    dset = InteractionDataset(Y,
+                              name=name,
+                              metadata=metadata,
+                              v_metadata=v_metadata,
+                              u_metadata=u_metadata)
 
     dset.dump('test.json', dense=True)
 
