@@ -160,6 +160,6 @@ if __name__ == '__main__':
                               v_metadata=v_metadata,
                               u_metadata=u_metadata)
 
-    dset.dump('test.json', dense=True)
+    dset.dump('test.json', dense=False, indent=2)
 
     dset2 = InteractionDataset.load_json('test.json')
