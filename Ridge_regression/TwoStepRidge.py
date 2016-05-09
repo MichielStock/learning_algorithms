@@ -1,6 +1,6 @@
 """
 Created on Wed 13 Jan 2016
-Last update: Wed 30 Mar 2016
+Last update: Mon 9 May 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -8,7 +8,6 @@ michielfmstock@gmail.com
 Implementations of the two-step kernel ridge regression method
 """
 
-import numpy as np
 from KroneckerRidge import KroneckerKernelRidgeRegression
 from PairwiseModel import *
 
@@ -73,15 +72,18 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
     """
     Kronecker kernel ridge regression, with the corresponding shortcuts
     """
-    def train_model(self, regularization=(1, 1), return_Yhat=False):
+    def train_model(self, regularization=(1, 1)):
         """
         Trains an Kronecker kernel ridge regression model
         """
         reg_1, reg_2 = regularization
+        L = (np.dot(self._Sigma.reshape((-1, 1)), self._S.reshape((1, -1))) +
+                                                        regularization)**-1
         self.regularization = regularization
         self._A = (self._U / (self._Sigma + reg_1)).dot(
                     self._U.T).dot(self._Y).dot(self._V / (self._S +
                     reg_2)).dot(self._V.T)
+        self.regularization = regularization
 
     def lo_setting_A(self, regularization=None, H_k=None, H_g=None):
         """
@@ -219,13 +221,13 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         print('Best regularization {} gives {}'.format(best_regs, best_perf))
 
 if __name__ == '__main__':
+    
+    n_rows, n_cols = 100, 250
+    dim_1, dim_2 = 300, 600
 
-    nrow = 110
-    ncol = 150
-
-    Y = np.random.randn(nrow, ncol)
-    X1 = np.random.randn(nrow, nrow)
-    X2 = np.random.rand(ncol, ncol)
+    Y = np.random.randn(n_rows, n_cols)
+    X1 = np.random.randn(n_rows, dim_1)
+    X2 = np.random.rand(n_cols, dim_2)
 
     K = X1.dot(X1.T)
     G = X2.dot(X2.T)

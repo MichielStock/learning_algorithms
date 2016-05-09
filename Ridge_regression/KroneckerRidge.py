@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 11 Jan 2016
-Last update: Tue 12 Jan 2016
+Last update: Mon 9 May 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -104,15 +104,16 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         self._S = S
         self.nrows, self.ncols = Y.shape
 
-    def train_model(self, regularization=1, return_Yhat=False):
+    def train_model(self, regularization=1):
         """
         Trains an Kronecker kernel ridge regression model
         """
-        # make leverages
+        # make filtered values
         L = (np.dot(self._Sigma.reshape((-1, 1)), self._S.reshape((1, -1))) +
                                                         regularization)**-1
+        self._filtered_vals = L  # save the filtered values
         # make parameters
-        self._A = self._parameters_from_leverages(L)
+        self._A = self._parameters_from_filtered_vals(L)
         self.regularization = regularization
 
     def lo_setting_A(self, regularization=1):
@@ -141,7 +142,7 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
     def lo_setting_D(self, regularization=1):
         """
         Imputation for setting D
-        Uses two for-loops so is VERY slow   
+        Uses two for-loops so is VERY slow
         """
         return loocv_setD(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
@@ -201,12 +202,12 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
 
 if __name__ == '__main__':
 
-    nrow = 11
-    ncol = 55
+    n_rows, n_cols = 100, 250
+    dim_1, dim_2 = 300, 600
 
-    Y = np.random.randn(nrow, ncol)
-    X1 = np.random.randn(nrow, nrow)
-    X2 = np.random.rand(ncol, ncol)
+    Y = np.random.randn(n_rows, n_cols)
+    X1 = np.random.randn(n_rows, dim_1)
+    X2 = np.random.rand(n_cols, dim_2)
 
     K = X1.dot(X1.T)
     G = X2.dot(X2.T)

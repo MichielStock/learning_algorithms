@@ -1,6 +1,6 @@
 """
 Created on Fri Apr 22 2016
-Last update: Sun Apr 24 2016
+Last update: Mon Apr 25 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -19,6 +19,7 @@ Each interaction dataset has following properties:
 import json
 import numpy as np
 
+
 def dense_graph_to_matrix(shape, graph, dtype=float):
     """
     Turns dense graph into a numpy matrix
@@ -29,13 +30,15 @@ def dense_graph_to_matrix(shape, graph, dtype=float):
         Y[int(i), :] = np.array(vals)[:]
     return Y
 
+
 def sparse_graph_to_matrix(shape, graph, dtype=float):
     Y = np.zeros(shape, dtype=dtype)
     for i, nodes in graph.items():
         for j, val in nodes:
             # keys in json are str
-            Y[int(), j] = val
+            Y[int(i), j] = val
     return Y
+
 
 class InteractionDataset:
     """
@@ -74,7 +77,8 @@ class InteractionDataset:
 
         # propperties about the dataset
         self.n_rows, self.n_cols = self.Y.shape
-        self.density = np.sum(Y != 0) / self.n_rows * self.n_cols
+        self.density = np.sum(self.Y != 0) * 1.0
+        self.density /= self.n_rows * self.n_cols
 
         self.version = 1
 
@@ -85,14 +89,14 @@ class InteractionDataset:
         interactions (dense=True) or a list of tuples (col_ind, val) for the
         non-negative interactions (dense=False, default)
         """
-        if dense == True:
+        if dense:
             graph = {i : list(self.Y[i])
-            for i in range(self.n_rows)}
+                for i in range(self.n_rows)}
         else:
             graph = {i : [(j, self.Y[i, j])
-            for j in range(self.n_cols)
-            if self.Y[i, j] != 0]
-            for i in range(self.n_rows)}
+                for j in range(self.n_cols)
+                if self.Y[i, j] != 0]
+                for i in range(self.n_rows)}
         return graph
 
     def dump(self, filename, dense=False, indent=None):
