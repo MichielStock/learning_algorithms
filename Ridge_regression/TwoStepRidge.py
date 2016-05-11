@@ -70,19 +70,32 @@ def regularization_map_2sridge(Y, Sigma, U, S, V, H_k, H_g, loocv_function,
 
 class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
     """
-    Kronecker kernel ridge regression, with the corresponding shortcuts
+    Two-step kernel ridge regression, with the corresponding shortcuts
     """
+    def __init__(self, Y, K, G):
+        """
+        Initialize the model from the two kernel matrices as feature
+        descriptions
+        """
+        Sigma, U = np.linalg.eigh(K)
+        S, V = np.linalg.eigh(G)
+        self._Y = Y
+        self._U = U
+        self._V = V
+        self._Sigma = Sigma
+        self._S = S
+        self.nrows, self.ncols = Y.shape
+
     def train_model(self, regularization=(1, 1)):
         """
         Trains an Kronecker kernel ridge regression model
         """
         reg_1, reg_2 = regularization
-        L = (np.dot(self._Sigma.reshape((-1, 1)), self._S.reshape((1, -1))) +
-                                                        regularization)**-1
-        self.regularization = regularization
-        self._A = (self._U / (self._Sigma + reg_1)).dot(
-                    self._U.T).dot(self._Y).dot(self._V / (self._S +
-                    reg_2)).dot(self._V.T)
+        Sigma, S = self._Sigma, self._S
+        L = (np.dot(Sigma.reshape((-1, 1)) + reg_1, S.reshape((1, -1)) + reg_2))
+        L **= -1
+        self._filtered_vals = L  # save the filtered values
+        self._A = self._parameters_from_filtered_vals(L)
         self.regularization = regularization
 
     def lo_setting_A(self, regularization=None, H_k=None, H_g=None):
@@ -220,8 +233,36 @@ class TwoStepRidgeRegression(KroneckerKernelRidgeRegression):
         self.train_model(best_regs)
         print('Best regularization {} gives {}'.format(best_regs, best_perf))
 
+
+class SmoothingTSKRR(TwoStepRidgeRegression):
+    """
+    Two-step kernel ridge regression, with the corresponding shortcuts
+
+    Instead of using kernel matrix for the objects, kernels of the following
+    form are used
+
+    k(x, x') = 1 + \theta1 * sigma(x, x')
+    """
+    def __init__(self, Y, theta1=0.1, theta2=0.1):
+        """
+        Initialize the model using smoothing kernels as object descriptions
+        """
+        nrows, ncols = Y.shape
+        self.nrows, self.ncols = nrows, ncols
+        K = np.ones((nrows, nrows)) + theta1 * np.eye(nrows)
+        G = np.ones((ncols, ncols)) + theta2 * np.eye(ncols)
+        Sigma, U = np.linalg.eigh(K)
+        S, V = np.linalg.eigh(G)
+        self._Y = Y
+        self._U = U
+        self._V = V
+        self._Sigma = Sigma
+        self._S = S
+        self.theta1, self.theta2 = theta1, theta2
+
+
 if __name__ == '__main__':
-    
+
     n_rows, n_cols = 100, 250
     dim_1, dim_2 = 300, 600
 

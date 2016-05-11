@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 11 Jan 2016
-Last update: Mon 9 May 2016
+Last update: Mon 11 May 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -199,6 +199,35 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
                 best_perf = perf
         self.train_model(best_reg)
         print('Best regularization {} gives {}'.format(best_reg, best_perf))
+
+
+class SmoothingKKRR(KroneckerKernelRidgeRegression):
+    """
+    Smoothing Kronecker kernel ridge regression, with the corresponding
+    shortcuts
+
+    Instead of using kernel matrix for the objects, kernels of the following
+    form are used
+
+    k(x, x') = 1 + \theta1 * sigma(x, x')
+    """
+    def __init__(self, Y, theta1=0.1, theta2=0.1):
+        """
+        Initialize the model using smoothing kernels as object descriptions
+        """
+        nrows, ncols = Y.shape
+        self.nrows, self.ncols = nrows, ncols
+        K = np.ones((nrows, nrows)) + theta1 * np.eye(nrows)
+        G = np.ones((ncols, ncols)) + theta2 * np.eye(ncols)
+        Sigma, U = np.linalg.eigh(K)
+        S, V = np.linalg.eigh(G)
+        self._Y = Y
+        self._U = U
+        self._V = V
+        self._Sigma = Sigma
+        self._S = S
+        self.theta1, self.theta2 = theta1, theta2
+
 
 if __name__ == '__main__':
 

@@ -189,7 +189,6 @@ class PairwiseModel:
         iteration = 1
         while iteration <= max_iter:
             F[:] = self.reestimate(Y)
-            print(np.mean((Y[mask] - F[mask])**2))
             if epsilon is not None and np.mean((Y[mask] - F[mask])**2) < epsilon:
                 print('Converged after {} iterations'.format(iteration))
                 Y[mask] = F[mask]  # update missing values
