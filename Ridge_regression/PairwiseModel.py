@@ -11,6 +11,7 @@ General class for pairwise model
 
 import numpy as np
 from sklearn.metrics import roc_auc_score as auc
+import numba
 
 # PERFORMANCE MEASURES
 # --------------------
@@ -34,6 +35,7 @@ def macro_auc(Y, P):
     return np.mean([auc(Y[:,i] > 0, P[:,i]) for i in range(m) if Y[:,i].var()])
 
 # C-index
+@numba.jit
 def c_index(y, p):
     """
     C-index for vectors

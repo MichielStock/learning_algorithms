@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon 11 Jan 2016
-Last update: Mon 11 May 2016
+Last update: Fry 13 May 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -116,34 +116,42 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         self._A = self._parameters_from_filtered_vals(L)
         self.regularization = regularization
 
-    def lo_setting_A(self, regularization=1):
+    def lo_setting_A(self, regularization=None):
         """
         Imputation for setting A
         """
+        if regularization is None:
+            regularization = self.regularization
         return loocv_setA(self._Y, self._U, self._Sigma, self._V, self._S,
                                                           regularization)
 
-    def lo_setting_B(self, regularization=1):
+    def lo_setting_B(self, regularization=None):
         """
         Imputation for setting B
         Uses a for-loop so is slow
         """
+        if regularization is None:
+            regularization = self.regularization
         return loocv_setB(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
 
-    def lo_setting_C(self, regularization=1):
+    def lo_setting_C(self, regularization=None):
         """
         Imputation for setting C
         Uses a for-loop so is slow
         """
+        if regularization is None:
+            regularization = self.regularization
         return loocv_setC(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
 
-    def lo_setting_D(self, regularization=1):
+    def lo_setting_D(self, regularization=None):
         """
         Imputation for setting D
         Uses two for-loops so is VERY slow
         """
+        if regularization is None:
+            regularization = self.regularization
         return loocv_setD(self._Y, self._U, self._Sigma, self._V, self._S,
                                       regularization, np.zeros_like(self._Y))
 
@@ -188,7 +196,7 @@ class KroneckerKernelRidgeRegression(PairwiseModel):
         elif setting == 'C':
             loocv_function = loocv_setC
         elif setting == 'D':
-            loocv_function = pyloocv_setD
+            loocv_function = loocv_setD
         for i, reg in enumerate(grid):
             # calculate holdout values
             Yhoo[:] = loocv_function(self._Y, self._U, self._Sigma,
