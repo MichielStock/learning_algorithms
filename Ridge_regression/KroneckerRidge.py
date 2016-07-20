@@ -38,7 +38,7 @@ def loocv_setA(Y, U, Sigma, V, S, regularization, Yhoo=None):
     Leave-one-pair out for Kronecker kernel ridge regression setting A
     """
     E = np.dot(Sigma.reshape((-1, 1)), S.reshape((1, -1)))
-    E /= (E + regularization)  # filtered eigenvalues of hat matrix
+    E[:] /= (E + regularization)  # filtered eigenvalues of hat matrix
     Yhat = (U).dot(U.T.dot(Y).dot(V) * E).dot(V.T)
     L = np.dot((U)**2, E).dot(V.T**2)  # leverages, structured as a matrix
     return (Yhat - Y * L) / (1 - L)
