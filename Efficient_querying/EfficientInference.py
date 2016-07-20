@@ -1,6 +1,6 @@
 """
 Created on Tue Jun 9 2015
-Last update: Thu Jun 25 2015
+Last update: Wed Jul 20 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -12,7 +12,6 @@ seperable linear models
 from numpy import dot
 from heapq import heapify, heappop, heappush, heapreplace
 from time import time
-from numba import jit
 
 def calculate_partial_score(r, pos, xi, Y, sorted_lists):
     """
@@ -32,48 +31,6 @@ def conditionalposition(pos, xi):
     else:
         return - pos - 1
 
-@jit
-def partial_score_item(x, Y, item, partials, ub, lb, R):
-    r = 0
-    while ub > lb and r < R:
-        ub -= partials[r]
-        ub += x[r] * Y[item,r]
-        r += 1
-    if r < R:
-        return False, r, None
-    else:
-        return True, r, (ub, item)
-
-
-def simple_thr(x, Y, sorted_lists, K):
-    R = x.shape[0]
-    top_K = [(-np.inf, ) for k in range(K)]
-    partials = np.array([x[r]*Y[sorted_lists[0,r],r] for r in range(R)])
-    upper_bound = partials.sum()
-    lower_bound = -np.inf
-    scored = set([])
-    calculated = []
-    pos = 0
-    while lower_bound < upper_bound:
-        for r in range(R):
-            xr = x[r]
-            if xr < 0:
-                item = sorted_lists[-(pos+1),r]
-            else:
-                item = sorted_lists[pos,r]
-            pi = x[r] * Y[item, r]
-            if item not in scored:
-                finished, n_calcs, score = partial_score_item(x, Y, item, partials, upper_bound, lower_bound, R)
-                #calculated.append(n_calcs)
-                if finished:
-                    heapreplace(top_K, score)
-                scored.add(item)
-            upper_bound -= partials[r]
-            upper_bound += pi
-            partials[r] = pi
-            lower_bound = top_K[0][0]
-        pos +=1
-    return top_K, calculated
 
 class TopKInference():
     """
