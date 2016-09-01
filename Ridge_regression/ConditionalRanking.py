@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat 17 Jul 2016
-Last update: Wed 20 Jul 2016
+Last update: Thu 2 Jul 2016
 
 @author: Michiel Stock
 michielfmstock@gmail.com
@@ -18,11 +18,13 @@ class ConditionalRankingKronecker():
     def __init__(self, Y, K, G, axis=0):
         m, q = Y.shape
         if axis==0:  # ranking of u
-            K = K - K.sum(axis=1, keepdims=True) / m
-            Y = Y - Y.sum(axis=0, keepdims=True) / m
+            C = np.eye(m) - np.ones((m, m)) / m
+            K = C.dot(K)
+            Y = C.dot(Y)
         elif axis==1:  # ranking of v
-            G = G - G.sum(axis=1, keepdims=True) / q
-            Y = Y - Y.sum(axis=1, keepdims=True) / q
+            C = np.eye(q) - np.ones((q, q)) / q
+            G = C.dot(G)
+            Y = Y.dot(C)
         else:
             print('Axis should be 0 or 1')
             raise KeyError
@@ -45,7 +47,8 @@ class ConditionalRankingKronecker():
         L = np.dot(self._Sigma.reshape((-1, 1)), self._S.reshape((1, -1)))
         E = self._Uinv.dot(self._Y).dot(self._Vinv.T) / (L + regularization)
         # the dual parameters
-        self._A = (self._U.dot(E).dot(self._V.T)).real  # only real part
+        self._A_complex = (self._U.dot(E).dot(self._V.T))
+        self._A = self._A_complex.real  # only real part
         self.regularization = regularization
 
     def predict(self, k, g):
@@ -64,7 +67,7 @@ class ConditionalRankingKronecker():
         E /= (E + regularization)  # filtered eigenvalues of hat matrix
         Yhat = self._U.dot(self._Uinv.dot(self._Y).dot(self._Vinv.T) *\
                     E).dot(self._V.T)
-        leverages = (self._U * self._Uinv).dot(E).dot((self._V * self._Vinv).T)
+        leverages = (self._U * self._Uinv.T).dot(E).dot((self._V * self._Vinv.T).T)
         loo_values = (Yhat - leverages * self._Y) / (1 - leverages)
         return loo_values.real
 
@@ -89,15 +92,15 @@ if __name__ == '__main__':
     from PairwiseModel import c_index, matrix_c_index, rmse
     micro_c_index = lambda Y, P : c_index(Y.ravel(), P.ravel())
 
-    X_u = np.random.randn(200, 11)
-    X_v = np.random.randn(200, 11)
+    X_u = np.random.randn(200, 201)
+    X_v = np.random.randn(200, 201)
     # set bias
     X_u[:, -1] = 1
     X_v[:, -1] = 1
 
     Y = X_u[:, [0, 1]].dot(np.ones((2, 200))) + np.random.randn(200, 200)
-    #Y += np.random.randn(200, 1) * 2
-    #Y += np.random.randn(1, 200) * 3
+    Y += np.random.randn(200, 1) * 2
+    Y += np.random.randn(1, 200) * 3
 
 
     Ktrain = X_u[:100].dot(X_u[:100].T)
@@ -108,9 +111,11 @@ if __name__ == '__main__':
     Ytrain = Y[:, :100][:100, :]
     Ytest = Y[:, 100:][100:, :]
 
-    model0 = ConditionalRankingKronecker(Ytrain, Gtrain, Gtest, axis=0)
-    model1 = ConditionalRankingKronecker(Ytrain, Gtrain, Gtest, axis=1)
+    model0 = ConditionalRankingKronecker(Ytrain, Ktrain, Gtest, axis=0)
+    model1 = ConditionalRankingKronecker(Ytrain, Ktrain, Gtest, axis=1)
 
-    grid = np.logspace(-5, 5, 11)
-    model0.tune_loocv(grid)
-    model1.tune_loocv(grid)
+    model0.train_model(1)
+    model1.train_model(1)
+
+    P0 = model0.predict(Ktest, Gtest)
+    P1 = model0.predict(Ktest, Gtest)
