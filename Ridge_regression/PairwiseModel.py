@@ -130,6 +130,8 @@ class PairwiseModel:
                     difference between the imputed values of two iterations is
                     smaller than epsilon, the updating will terminate
 
+        Ouput: restored Y
+
         """
         if Y is None:  # use given labels
             Y = self._Y.copy()
