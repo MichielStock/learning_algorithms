@@ -241,7 +241,7 @@ class SmoothingTSKRR(TwoStepRidgeRegression):
     Instead of using kernel matrix for the objects, kernels of the following
     form are used
 
-    k(x, x') = 1 + \theta1 * sigma(x, x')
+    k(x, x') = 1 + theta * sigma(x, x')
     """
     def __init__(self, Y, theta1=0.1, theta2=0.1):
         """
